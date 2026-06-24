@@ -136,6 +136,61 @@ export default function App() {
     });
   }, []);
 
+  // Detect virtual keyboard and form focus state to prevent layout displacement
+  useEffect(() => {
+    const checkKeyboard = () => {
+      const activeEl = document.activeElement;
+      const isInputFocused = !!(activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.tagName === 'SELECT' ||
+        activeEl.getAttribute('contenteditable') === 'true'
+      ));
+      
+      if (isInputFocused) {
+        document.body.classList.add('keyboard-open');
+      } else {
+        document.body.classList.remove('keyboard-open');
+      }
+    };
+
+    window.addEventListener('focusin', checkKeyboard);
+    // Use delay for focusout so we don't flicker between inputs
+    const handleFocusOut = () => setTimeout(checkKeyboard, 100);
+    window.addEventListener('focusout', handleFocusOut);
+    
+    if (window.visualViewport) {
+      const handleResize = () => {
+        if (window.visualViewport && window.visualViewport.height < window.innerHeight * 0.85) {
+          document.body.classList.add('keyboard-open');
+        } else {
+          const activeEl = document.activeElement;
+          const isInputFocused = !!(activeEl && (
+            activeEl.tagName === 'INPUT' || 
+            activeEl.tagName === 'TEXTAREA' || 
+            activeEl.tagName === 'SELECT'
+          ));
+          if (!isInputFocused) {
+            document.body.classList.remove('keyboard-open');
+          }
+        }
+      };
+      window.visualViewport.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('focusin', checkKeyboard);
+        window.removeEventListener('focusout', handleFocusOut);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleResize);
+        }
+      };
+    }
+
+    return () => {
+      window.removeEventListener('focusin', checkKeyboard);
+      window.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
+
   // Initialize DB once on load
   useEffect(() => {
     initializeDB();
