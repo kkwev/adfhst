@@ -93,6 +93,10 @@ export default function AdminPanel({
   const [editingWithDrawalId, setEditingWithDrawalId] = useState<string | null>(null);
   const [editingWithDrawalAmount, setEditingWithDrawalAmount] = useState<number>(0);
 
+  // Financial Pagination states
+  const [withdrawalPage, setWithdrawalPage] = useState(1);
+  const [depositPage, setDepositPage] = useState(1);
+
   // 3. Member Management state
   const [createUserName, setCreateUserName] = useState('');
   const [createUserPhone, setCreateUserPhone] = useState('');
@@ -149,6 +153,17 @@ export default function AdminPanel({
 
   const themePrimary = settings.themeColor || '#FF1E27';
   const themeGradientEnd = settings.themeGradientEnd || '#FF5E62';
+
+  // Financial Pagination calculations
+  const ITEMS_PER_PAGE = 10;
+
+  const totalWithdrawalPages = Math.ceil(withdrawals.length / ITEMS_PER_PAGE) || 1;
+  const currentWithdrawalPage = Math.min(withdrawalPage, totalWithdrawalPages);
+  const displayedWithdrawals = withdrawals.slice((currentWithdrawalPage - 1) * ITEMS_PER_PAGE, currentWithdrawalPage * ITEMS_PER_PAGE);
+
+  const totalDepositPages = Math.ceil((deposits || []).length / ITEMS_PER_PAGE) || 1;
+  const currentDepositPage = Math.min(depositPage, totalDepositPages);
+  const displayedDeposits = (deposits || []).slice((currentDepositPage - 1) * ITEMS_PER_PAGE, currentDepositPage * ITEMS_PER_PAGE);
 
   // --- AUTO-REFRESH SCRIPT CORE ---
   // "หน้านี้ต้องมีการสร้างสคริปต์ให้ Auto-Refresh ข้อมูลทุกๆ 3 วินาที เพื่อสแตนด์บายรอรับข้อมูลใหม่"
@@ -1128,7 +1143,7 @@ export default function AdminPanel({
                         onClick={() => {
                           setSettingsCategories(settingsCategories.filter((_, i) => i !== idx));
                         }}
-                        className="text-[9px] text-red-500 font-bold mt-1.5 bg-red-50 hover:bg-red-100 py-1 rounded w-full border border-red-150"
+                        className="text-[9px] text-red-500 font-bold mt-1.5 bg-red-55 hover:bg-red-100 py-1 rounded w-full border border-red-150"
                       >
                         ลบออก
                       </button>
@@ -1156,18 +1171,18 @@ export default function AdminPanel({
                       <input
                         type="text"
                         className="bg-white border rounded-lg px-2.5 py-1.5 text-xs w-full font-semibold focus:outline-none focus:border-red-500"
-                        placeholder="เช่น ลิปสติกบำรุงเรียวปาก"
+                        placeholder="เช่น ลิปสติก"
                         value={newCatLabel}
                         onChange={(e) => setNewCatLabel(e.target.value)}
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <span className="text-[9.5px] font-bold text-gray-500 block">รหัสสากล (Category Key EN):</span>
+                      <span className="text-[9.5px] font-bold text-gray-500 block">รหัสสากล (Key uppercase):</span>
                       <div className="flex gap-1.5">
                         <input
                           type="text"
-                          className="bg-white border rounded-lg px-2.5 py-1.5 text-[11px] font-mono font-black flex-1 focus:outline-none uppercase"
+                          className="bg-white border rounded-lg px-2 py-1 text-xs font-mono font-bold w-full focus:outline-none placeholder:text-[9.5px] uppercase"
                           placeholder="เช่น LIPSTICK"
                           value={newCatKey}
                           onChange={(e) => setNewCatKey(e.target.value.toUpperCase())}
@@ -1346,128 +1361,177 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {withdrawals.map((wReq) => (
-                      <tr key={wReq.id} className="hover:bg-gray-50/50">
-                        <td className="p-3 font-mono font-bold text-gray-500">{wReq.createdAt.replace('T', ' ').substring(0,16)}</td>
-                        <td className="p-3 font-bold text-gray-800">
-                          {wReq.merchantName} <span className="block text-[9px] text-gray-400 font-mono">Tel: {wReq.merchantPhone}</span>
+                    {displayedWithdrawals.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-xs text-gray-400 font-bold">
+                          ยังไม่มีผู้ใช้ทำรายการแจ้งถอนเงินเข้ามาค่ะ
                         </td>
-                        <td className="p-3 font-black font-mono">
-                          {editingWithDrawalId === wReq.id ? (
-                            <div className="flex items-center gap-1.5 min-w-[140px]">
-                              <input
-                                type="number"
-                                className="w-20 border border-red-300 rounded-lg px-2 py-1 text-xs font-black font-mono text-gray-800 focus:outline-none focus:border-red-500 bg-red-50/50"
-                                value={editingWithDrawalAmount}
-                                onChange={(e) => setEditingWithDrawalAmount(Number(e.target.value))}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (editingWithDrawalAmount <= 0) {
-                                    alert('ยอดเงินต้องมากกว่า 0 THB ค่ะ');
-                                    return;
-                                  }
-                                  
-                                  // Update Withdrawal Request status
-                                  const updated = withdrawals.map(w => {
-                                    if (w.id === wReq.id) {
-                                      return { ...w, amount: editingWithDrawalAmount };
-                                    }
-                                    return w;
-                                  });
-                                  onUpdateWithdrawals(updated);
-                                  
-                                  // Live notification message
-                                  const adjustNotif: SystemNotification = {
-                                    id: `N-WIT-ADJ-${Date.now()}`,
-                                    userId: wReq.merchantId,
-                                    title: "หลังบ้านได้ปรับเปลี่ยนยอดคำขอถอนเงินของคุณ",
-                                    message: `ยอดคำขอถอนเงินรหัสบิล ${wReq.id} ของคุณ ถูกปรับเปลี่ยนโดยแอดมินจากยอดเดิม ${wReq.amount.toLocaleString()} THB เป็นยอดใหม่จำนวน ${editingWithDrawalAmount.toLocaleString()} THB`,
-                                    isSystemAnnouncement: false,
-                                    createdAt: new Date().toISOString()
-                                  };
-                                  onUpdateNotifications([...notifications, adjustNotif]);
-
-                                  alert(`ปรับปรุงยอดคำขอถอนเงินสำเร็จ! เปลี่ยนยอดเป้าหมายจาก ${wReq.amount.toLocaleString()} เป็น ${editingWithDrawalAmount.toLocaleString()} THB เรียบร้อยแล้วค่ะ`);
-                                  setEditingWithDrawalId(null);
-                                }}
-                                className="p-1 px-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-black text-[9px] cursor-pointer"
-                              >
-                                บันทึก
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingWithDrawalId(null)}
-                                className="p-1 px-1.5 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-black text-[9px] cursor-pointer"
-                              >
-                                ปิด
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-rose-600">{wReq.amount.toLocaleString()} THB</span>
-                              {wReq.status === 'pending' && (
+                      </tr>
+                    ) : (
+                      displayedWithdrawals.map((wReq) => (
+                        <tr key={wReq.id} className="hover:bg-gray-50/50">
+                          <td className="p-3 font-mono font-bold text-gray-500">{wReq.createdAt.replace('T', ' ').substring(0,16)}</td>
+                          <td className="p-3 font-bold text-gray-800">
+                            {wReq.merchantName} <span className="block text-[9px] text-gray-400 font-mono">Tel: {wReq.merchantPhone}</span>
+                          </td>
+                          <td className="p-3 font-black font-mono">
+                            {editingWithDrawalId === wReq.id ? (
+                              <div className="flex items-center gap-1.5 min-w-[140px]">
+                                <input
+                                  type="number"
+                                  className="w-20 border border-red-300 rounded-lg px-2 py-1 text-xs font-black font-mono text-gray-800 focus:outline-none focus:border-red-500 bg-red-50/50"
+                                  value={editingWithDrawalAmount}
+                                  onChange={(e) => setEditingWithDrawalAmount(Number(e.target.value))}
+                                />
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setEditingWithDrawalId(wReq.id);
-                                    setEditingWithDrawalAmount(wReq.amount);
+                                    if (editingWithDrawalAmount <= 0) {
+                                      alert('ยอดเงินต้องมากกว่า 0 THB ค่ะ');
+                                      return;
+                                    }
+                                    
+                                    // Update Withdrawal Request status
+                                    const updated = withdrawals.map(w => {
+                                      if (w.id === wReq.id) {
+                                        return { ...w, amount: editingWithDrawalAmount };
+                                      }
+                                      return w;
+                                    });
+                                    onUpdateWithdrawals(updated);
+                                    
+                                    // Live notification message
+                                    const adjustNotif: SystemNotification = {
+                                      id: `N-WIT-ADJ-${Date.now()}`,
+                                      userId: wReq.merchantId,
+                                      title: "หลังบ้านได้ปรับเปลี่ยนยอดคำขอถอนเงินของคุณ",
+                                      message: `ยอดคำขอถอนเงินรหัสบิล ${wReq.id} ของคุณ ถูกปรับเปลี่ยนโดยแอดมินจากยอดเดิม ${wReq.amount.toLocaleString()} THB เป็นยอดใหม่จำนวน ${editingWithDrawalAmount.toLocaleString()} THB`,
+                                      isSystemAnnouncement: false,
+                                      createdAt: new Date().toISOString()
+                                    };
+                                    onUpdateNotifications([...notifications, adjustNotif]);
+
+                                    alert(`ปรับปรุงยอดคำขอถอนเงินสำเร็จ! เปลี่ยนยอดเป้าหมายจาก ${wReq.amount.toLocaleString()} เป็น ${editingWithDrawalAmount.toLocaleString()} THB เรียบร้อยแล้วค่ะ`);
+                                    setEditingWithDrawalId(null);
                                   }}
-                                  className="inline-flex items-center gap-0.5 text-[8.5px] bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 font-extrabold px-1.5 py-0.5 rounded border border-red-200 transition-all cursor-pointer leading-none"
+                                  className="p-1 px-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-black text-[9px] cursor-pointer"
                                 >
-                                  ✏️ เปลี่ยนยอด
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-                            wReq.status === 'pending' ? 'bg-amber-100 text-amber-700' : wReq.status === 'approved' ? 'bg-teal-100 text-teal-700' : 'bg-rose-100 text-rose-750'
-                          }`}>
-                            {wReq.status}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          {wReq.status === 'pending' ? (
-                            <div className="flex flex-col gap-1 z-10 max-w-[200px] mx-auto text-xs">
-                              <input
-                                type="text"
-                                placeholder="ใส่หมายเหตุ (ถ้ามี)..."
-                                className="border rounded px-2 py-1 text-[10px] font-semibold"
-                                value={withdrawActionComment}
-                                id={`withdraw-comment-${wReq.id}`}
-                                onChange={(e) => setWithdrawActionComment(e.target.value)}
-                              />
-                              <div className="flex gap-1 justify-center">
-                                <button
-                                  type="button"
-                                  onClick={() => handleApproveWithDrawalRequest(wReq.id, true)}
-                                  className="bg-teal-600 font-medium hover:bg-teal-700 text-white text-[9px] px-2.5 py-1 rounded"
-                                >
-                                  อนุมัติโอนเงิน
+                                  บันทึก
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleApproveWithDrawalRequest(wReq.id, false)}
-                                  className="bg-rose-600 font-medium hover:bg-rose-700 text-white text-[9px] px-2.5 py-1 rounded"
+                                  onClick={() => setEditingWithDrawalId(null)}
+                                  className="p-1 px-1.5 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-black text-[9px] cursor-pointer"
                                 >
-                                  ปฏิเสธ
+                                  ปิด
                                 </button>
                               </div>
-                            </div>
-                          ) : (
-                            <p className="text-[10px] text-gray-400 font-bold border rounded p-1.5 bg-gray-50 text-center font-mono">
-                              {wReq.comment || 'บันทึกระบายเรียบร้อย'}
-                            </p>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-rose-600">{wReq.amount.toLocaleString()} THB</span>
+                                {wReq.status === 'pending' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingWithDrawalId(wReq.id);
+                                      setEditingWithDrawalAmount(wReq.amount);
+                                    }}
+                                    className="inline-flex items-center gap-0.5 text-[8.5px] bg-red-50 hover:bg-red-100 text-red-700 hover:text-red-800 font-extrabold px-1.5 py-0.5 rounded border border-red-200 transition-all cursor-pointer leading-none"
+                                  >
+                                    ✏️ เปลี่ยนยอด
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
+                              wReq.status === 'pending' ? 'bg-amber-100 text-amber-700' : wReq.status === 'approved' ? 'bg-teal-100 text-teal-700' : 'bg-rose-100 text-rose-750'
+                            }`}>
+                              {wReq.status}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {wReq.status === 'pending' ? (
+                              <div className="flex flex-col gap-1 z-10 max-w-[200px] mx-auto text-xs">
+                                <input
+                                  type="text"
+                                  placeholder="ใส่หมายเหตุ (ถ้ามี)..."
+                                  className="border rounded px-2 py-1 text-[10px] font-semibold"
+                                  value={withdrawActionComment}
+                                  id={`withdraw-comment-${wReq.id}`}
+                                  onChange={(e) => setWithdrawActionComment(e.target.value)}
+                                />
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveWithDrawalRequest(wReq.id, true)}
+                                    className="bg-teal-600 font-medium hover:bg-teal-700 text-white text-[9px] px-2.5 py-1 rounded"
+                                  >
+                                    อนุมัติโอนเงิน
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveWithDrawalRequest(wReq.id, false)}
+                                    className="bg-rose-600 font-medium hover:bg-rose-700 text-white text-[9px] px-2.5 py-1 rounded"
+                                  >
+                                    ปฏิเสธ
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-gray-400 font-bold border rounded p-1.5 bg-gray-50 text-center font-mono">
+                                {wReq.comment || 'บันทึกระบายเรียบร้อย'}
+                              </p>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* WITHDRAWAL PAGINATION */}
+              {totalWithdrawalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100">
+                  <span className="text-[11px] text-gray-500 font-bold">
+                    แสดง {(currentWithdrawalPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentWithdrawalPage * ITEMS_PER_PAGE, withdrawals.length)} จากทั้งหมด {withdrawals.length} รายการ
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={currentWithdrawalPage === 1}
+                      onClick={() => setWithdrawalPage(p => Math.max(1, p - 1))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-[10px] font-black bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 cursor-pointer transition-all"
+                    >
+                      ย้อนกลับ
+                    </button>
+                    {Array.from({ length: totalWithdrawalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setWithdrawalPage(page)}
+                        className={`w-7 h-7 rounded-xl text-[10px] font-black flex items-center justify-center transition-all ${
+                          currentWithdrawalPage === page
+                            ? 'bg-gray-900 text-white shadow-sm'
+                            : 'border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 cursor-pointer'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={currentWithdrawalPage === totalWithdrawalPages}
+                      onClick={() => setWithdrawalPage(p => Math.min(totalWithdrawalPages, p + 1))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-[10px] font-black bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 cursor-pointer transition-all"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* DEPOSITS APPLICATION LIST REQUESTS */}
@@ -1488,14 +1552,14 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {(deposits || []).length === 0 ? (
+                    {displayedDeposits.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-8 text-center text-xs text-gray-400 font-bold">
                           ยังไม่มีผู้ใช้ทำรายการแจ้งฝากเงินสลิปเข้ามาค่ะ
                         </td>
                       </tr>
                     ) : (
-                      deposits.map((dReq) => (
+                      displayedDeposits.map((dReq) => (
                         <tr key={dReq.id} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono font-bold text-gray-500">
                             {dReq.createdAt.replace('T', ' ').substring(0, 16)}
@@ -1564,6 +1628,47 @@ export default function AdminPanel({
                   </tbody>
                 </table>
               </div>
+
+              {/* DEPOSIT PAGINATION */}
+              {totalDepositPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100 mt-4">
+                  <span className="text-[11px] text-gray-500 font-bold">
+                    แสดง {(currentDepositPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentDepositPage * ITEMS_PER_PAGE, deposits.length)} จากทั้งหมด {deposits.length} รายการ
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      disabled={currentDepositPage === 1}
+                      onClick={() => setDepositPage(p => Math.max(1, p - 1))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-[10px] font-black bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 cursor-pointer transition-all"
+                    >
+                      ย้อนกลับ
+                    </button>
+                    {Array.from({ length: totalDepositPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        type="button"
+                        onClick={() => setDepositPage(page)}
+                        className={`w-7 h-7 rounded-xl text-[10px] font-black flex items-center justify-center transition-all ${
+                          currentDepositPage === page
+                            ? 'bg-gray-900 text-white shadow-sm'
+                            : 'border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 cursor-pointer'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      disabled={currentDepositPage === totalDepositPages}
+                      onClick={() => setDepositPage(p => Math.min(totalDepositPages, p + 1))}
+                      className="px-2.5 py-1.5 border border-gray-200 rounded-xl text-[10px] font-black bg-white hover:bg-gray-50 text-gray-600 disabled:opacity-40 cursor-pointer transition-all"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
           </div>
