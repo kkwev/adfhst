@@ -83,6 +83,15 @@ function handleQuotaError(err: any) {
 
 // Initialize Firestore collections with seed data if they are vacant
 export async function initializeFirestoreDB() {
+  if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
+    try {
+      await enableNetwork(db);
+      console.log("Firestore network successfully enabled on initialization.");
+    } catch (e) {
+      console.warn("Firestore network enable on init failed (it might already be active):", e);
+    }
+  }
+
   if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
     console.log("Checking if Firestore Quota has been restored or upgraded...");
     try {
@@ -173,6 +182,67 @@ export async function initializeFirestoreDB() {
       }
       
       console.log("Firestore database seeded successfully!");
+    } else {
+      console.log("Firestore database exists. Synchronizing offline-first changes...");
+      
+      const localUsers = getStoredData<User[]>("paopao_users", []);
+      const localProducts = getStoredData<Product[]>("paopao_products", []);
+      const localNotifications = getStoredData<SystemNotification[]>("paopao_notifications", []);
+      const localOrders = getStoredData<Order[]>("paopao_orders", []);
+      const localChats = getStoredData<ChatMessage[]>("paopao_chats", []);
+      const localWithdrawals = getStoredData<WithdrawalRequest[]>("paopao_withdrawals", []);
+      const localDeposits = getStoredData<DepositRequest[]>("paopao_deposits", []);
+
+      // 1. Users (merge registered/modified profiles)
+      for (const u of localUsers) {
+        if (u && u.id) {
+          await setDoc(doc(db, "users", u.id), u, { merge: true });
+        }
+      }
+      
+      // 2. Products
+      for (const p of localProducts) {
+        if (p && p.id) {
+          await setDoc(doc(db, "products", p.id), p, { merge: true });
+        }
+      }
+      
+      // 3. Notifications
+      for (const n of localNotifications) {
+        if (n && n.id) {
+          await setDoc(doc(db, "notifications", n.id), n, { merge: true });
+        }
+      }
+      
+      // 4. Orders
+      for (const o of localOrders) {
+        if (o && o.id) {
+          await setDoc(doc(db, "orders", o.id), o, { merge: true });
+        }
+      }
+      
+      // 5. Chats
+      for (const c of localChats) {
+        if (c && c.id) {
+          await setDoc(doc(db, "chats", c.id), c, { merge: true });
+        }
+      }
+      
+      // 6. Withdrawals
+      for (const w of localWithdrawals) {
+        if (w && w.id) {
+          await setDoc(doc(db, "withdrawals", w.id), w, { merge: true });
+        }
+      }
+      
+      // 7. Deposits
+      for (const d of localDeposits) {
+        if (d && d.id) {
+          await setDoc(doc(db, "deposits", d.id), d, { merge: true });
+        }
+      }
+      
+      console.log("Offline changes synchronized successfully!");
     }
   } catch (error) {
     if (isQuotaError(error)) {
