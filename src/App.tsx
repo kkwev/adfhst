@@ -195,6 +195,7 @@ export default function App() {
     initializeDB();
 
     let unsubscibers: (() => void)[] = [];
+    let isCurrentEffect = true;
 
     const handleQuotaErrorGlobal = (err?: any) => {
       if (err ? isQuotaError(err) : true) {
@@ -220,13 +221,6 @@ export default function App() {
     onFirestoreQuotaExceeded(() => {
       handleQuotaErrorGlobal();
     });
-    
-    // Seed Firestore if empty, then sync and start listeners
-    const setupAndSync = async () => {
-      await initializeFirestoreDB();
-      syncFromLocalStorage();
-    };
-    setupAndSync();
 
     // Register Firestore writing registry
     registerExternalSync((key, value) => {
@@ -244,181 +238,199 @@ export default function App() {
       }
     }
 
-    // Set up real-time snapshot listeners for multi-device live replication (bypass if quota exceeded)
-    if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
-      unsubscibers = [
-        onSnapshot(collection(db, "users"), (snapshot) => {
-        const list: User[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as User);
-        });
-        list.sort((a, b) => a.id.localeCompare(b.id));
-        updateFirestoreCache("paopao_users", list);
-        localStorage.setItem("paopao_users", JSON.stringify(list));
-        setUsers(list);
+    // Seed Firestore if empty, then sync and start listeners
+    const setupAndSync = async () => {
+      try {
+        await initializeFirestoreDB();
         
-        setCurrentUser(prevUser => {
-          if (!prevUser) return null;
-          const refUser = list.find(u => u.id === prevUser.id);
-          if (refUser) {
-            if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
-              localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
-              return refUser;
-            }
-          }
-          return prevUser;
-        });
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (users). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (users):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
-
-      onSnapshot(collection(db, "products"), (snapshot) => {
-        const list: Product[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as Product);
-        });
-
-        // One-time master delete of all existing Firestore products
-        if (localStorage.getItem("paopao_firestore_products_deleted_v3") !== "true") {
-          localStorage.setItem("paopao_firestore_products_deleted_v3", "true");
-          import("firebase/firestore").then(({ doc, deleteDoc }) => {
-            for (const p of list) {
-              deleteDoc(doc(db, "products", p.id)).catch(e => {
-                console.error("Firestore cleanup error: ", e);
-              });
-            }
-          });
-          updateFirestoreCache("paopao_products", []);
-          localStorage.setItem("paopao_products", JSON.stringify([]));
-          setProducts([]);
+        if (!isCurrentEffect) {
+          console.log("Effect was cleaned up before initialization completed. Skipping listener registration.");
           return;
         }
 
-        list.sort((a, b) => a.id.localeCompare(b.id));
-        updateFirestoreCache("paopao_products", list);
-        localStorage.setItem("paopao_products", JSON.stringify(list));
-        setProducts(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (products). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (products):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+        syncFromLocalStorage();
 
-      onSnapshot(collection(db, "orders"), (snapshot) => {
-        const list: Order[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as Order);
-        });
-        list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        updateFirestoreCache("paopao_orders", list);
-        localStorage.setItem("paopao_orders", JSON.stringify(list));
-        setOrders(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (orders). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (orders):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+        // Set up real-time snapshot listeners for multi-device live replication (bypass if quota exceeded)
+        // ONLY start the snapshot listeners AFTER Firestore has successfully initialized and synced!
+        if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
+          unsubscibers = [
+            onSnapshot(collection(db, "users"), (snapshot) => {
+              const list: User[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as User);
+              });
+              list.sort((a, b) => a.id.localeCompare(b.id));
+              updateFirestoreCache("paopao_users", list);
+              localStorage.setItem("paopao_users", JSON.stringify(list));
+              setUsers(list);
+              
+              setCurrentUser(prevUser => {
+                if (!prevUser) return null;
+                const refUser = list.find(u => u.id === prevUser.id);
+                if (refUser) {
+                  if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
+                    localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
+                    return refUser;
+                  }
+                }
+                return prevUser;
+              });
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (users). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (users):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
 
-      onSnapshot(collection(db, "notifications"), (snapshot) => {
-        const list: SystemNotification[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as SystemNotification);
-        });
-        list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        updateFirestoreCache("paopao_notifications", list);
-        localStorage.setItem("paopao_notifications", JSON.stringify(list));
-        setNotifications(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (notifications). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (notifications):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+            onSnapshot(collection(db, "products"), (snapshot) => {
+              const list: Product[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as Product);
+              });
 
-      onSnapshot(collection(db, "chats"), (snapshot) => {
-        const list: ChatMessage[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as ChatMessage);
-        });
-        list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-        updateFirestoreCache("paopao_chats", list);
-        localStorage.setItem("paopao_chats", JSON.stringify(list));
-        setChats(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (chats). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (chats):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+              // One-time master delete of all existing Firestore products
+              if (localStorage.getItem("paopao_firestore_products_deleted_v3") !== "true") {
+                localStorage.setItem("paopao_firestore_products_deleted_v3", "true");
+                import("firebase/firestore").then(({ doc, deleteDoc }) => {
+                  for (const p of list) {
+                    deleteDoc(doc(db, "products", p.id)).catch(e => {
+                      console.error("Firestore cleanup error: ", e);
+                    });
+                  }
+                });
+                updateFirestoreCache("paopao_products", []);
+                localStorage.setItem("paopao_products", JSON.stringify([]));
+                setProducts([]);
+                return;
+              }
 
-      onSnapshot(collection(db, "withdrawals"), (snapshot) => {
-        const list: WithdrawalRequest[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as WithdrawalRequest);
-        });
-        list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        updateFirestoreCache("paopao_withdrawals", list);
-        localStorage.setItem("paopao_withdrawals", JSON.stringify(list));
-        setWithdrawals(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (withdrawals). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (withdrawals):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+              list.sort((a, b) => a.id.localeCompare(b.id));
+              updateFirestoreCache("paopao_products", list);
+              localStorage.setItem("paopao_products", JSON.stringify(list));
+              setProducts(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (products). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (products):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
 
-      onSnapshot(collection(db, "deposits"), (snapshot) => {
-        const list: DepositRequest[] = [];
-        snapshot.forEach(docSnap => {
-          list.push(docSnap.data() as DepositRequest);
-        });
-        list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        updateFirestoreCache("paopao_deposits", list);
-        localStorage.setItem("paopao_deposits", JSON.stringify(list));
-        setDeposits(list);
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (deposits). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (deposits):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      }),
+            onSnapshot(collection(db, "orders"), (snapshot) => {
+              const list: Order[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as Order);
+              });
+              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              updateFirestoreCache("paopao_orders", list);
+              localStorage.setItem("paopao_orders", JSON.stringify(list));
+              setOrders(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (orders). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (orders):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
 
-      onSnapshot(doc(db, "settings", "main"), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data() as SystemSettings;
-          updateFirestoreCache("paopao_settings", data);
-          localStorage.setItem("paopao_settings", JSON.stringify(data));
-          setSettings(data);
+            onSnapshot(collection(db, "notifications"), (snapshot) => {
+              const list: SystemNotification[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as SystemNotification);
+              });
+              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              updateFirestoreCache("paopao_notifications", list);
+              localStorage.setItem("paopao_notifications", JSON.stringify(list));
+              setNotifications(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (notifications). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (notifications):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
+
+            onSnapshot(collection(db, "chats"), (snapshot) => {
+              const list: ChatMessage[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as ChatMessage);
+              });
+              list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+              updateFirestoreCache("paopao_chats", list);
+              localStorage.setItem("paopao_chats", JSON.stringify(list));
+              setChats(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (chats). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (chats):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
+
+            onSnapshot(collection(db, "withdrawals"), (snapshot) => {
+              const list: WithdrawalRequest[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as WithdrawalRequest);
+              });
+              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              updateFirestoreCache("paopao_withdrawals", list);
+              localStorage.setItem("paopao_withdrawals", JSON.stringify(list));
+              setWithdrawals(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (withdrawals). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (withdrawals):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
+
+            onSnapshot(collection(db, "deposits"), (snapshot) => {
+              const list: DepositRequest[] = [];
+              snapshot.forEach(docSnap => {
+                list.push(docSnap.data() as DepositRequest);
+              });
+              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+              updateFirestoreCache("paopao_deposits", list);
+              localStorage.setItem("paopao_deposits", JSON.stringify(list));
+              setDeposits(list);
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (deposits). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (deposits):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            }),
+
+            onSnapshot(doc(db, "settings", "main"), (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data() as SystemSettings;
+                updateFirestoreCache("paopao_settings", data);
+                localStorage.setItem("paopao_settings", JSON.stringify(data));
+                setSettings(data);
+              }
+            }, (err) => {
+              if (isQuotaError(err)) {
+                console.warn("Firestore sync quota limit exceeded (settings). Using local offline storage.");
+              } else {
+                console.error("Firestore sync error (settings):", err);
+              }
+              handleQuotaErrorGlobal(err);
+            })
+          ];
         }
-      }, (err) => {
-        if (isQuotaError(err)) {
-          console.warn("Firestore sync quota limit exceeded (settings). Using local offline storage.");
-        } else {
-          console.error("Firestore sync error (settings):", err);
-        }
-        handleQuotaErrorGlobal(err);
-      })
-    ];
-  }
+      } catch (err: any) {
+        console.error("Error initializing Firestore database:", err);
+      }
+    };
+    setupAndSync();
 
     // Live backend/database synchronization across separate tabs & iframes
     const handleStorage = (e: StorageEvent) => {
@@ -440,8 +452,15 @@ export default function App() {
 
     window.addEventListener("storage", handleStorage);
     return () => {
+      isCurrentEffect = false;
       window.removeEventListener("storage", handleStorage);
-      unsubscibers.forEach(unsub => unsub());
+      unsubscibers.forEach(unsub => {
+        try {
+          unsub();
+        } catch (e) {
+          // ignore
+        }
+      });
     };
   }, [syncFromLocalStorage]);
 
