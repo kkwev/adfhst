@@ -6,7 +6,9 @@ import {
   onSnapshot, 
   getDoc,
   deleteDoc,
-  disableNetwork
+  disableNetwork,
+  enableNetwork,
+  getDocFromServer
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { 
@@ -80,14 +82,38 @@ function handleQuotaError(err: any) {
 // Initialize Firestore collections with seed data if they are vacant
 export async function initializeFirestoreDB() {
   if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
-    console.warn("Firestore initialization skipped: Quota limit was previously exceeded. Running in offline/local-first mode safely.");
+    console.log("Checking if Firestore Quota has been restored or upgraded...");
     try {
-      await disableNetwork(db);
-      console.log("Firestore network disabled successfully.");
-    } catch (e) {
-      console.error("Error disabling Firestore network on init:", e);
+      // Temporarily enable network to check if quota is back
+      await enableNetwork(db);
+      // Attempt to fetch a tiny doc from server to check real quota status
+      await getDocFromServer(doc(db, "settings", "main"));
+      
+      // If we reach here, the quota is NOT exceeded anymore!
+      console.log("Firestore connection test succeeded. Quota limit has been cleared/upgraded!");
+      localStorage.removeItem("paopao_firestore_quota_exceeded");
+      window.location.reload();
+      return;
+    } catch (error) {
+      if (isQuotaError(error)) {
+        console.warn("Firestore quota is still exceeded. Staying in offline-first mode.");
+        try {
+          await disableNetwork(db);
+        } catch (e) {
+          // ignore
+        }
+        return;
+      } else {
+        // Some other error (e.g. temporary network offline / no internet)
+        console.warn("Firestore connection check failed with non-quota error. Staying in offline-first mode for safety:", error);
+        try {
+          await disableNetwork(db);
+        } catch (e) {
+          // ignore
+        }
+        return;
+      }
     }
-    return;
   }
   try {
     const settingsRef = doc(db, "settings", "main");
