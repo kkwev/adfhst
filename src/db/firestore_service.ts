@@ -33,6 +33,11 @@ import {
   logOnlineAction
 } from "./local_db";
 
+// Clear legacy quota exceeded flag on load since the user has upgraded to the Blaze Plan!
+try {
+  localStorage.removeItem("paopao_firestore_quota_exceeded");
+} catch (e) {}
+
 let onQuotaExceededCallback: (() => void) | null = null;
 
 export function onFirestoreQuotaExceeded(cb: () => void) {
@@ -53,16 +58,12 @@ export function isQuotaError(err: any): boolean {
   if (!err) return false;
   const errMsg = (err?.message || String(err)).toLowerCase();
   const errCode = (err?.code || "").toLowerCase();
-  const isExceeded = (
+  return (
     errMsg.includes("quota") || 
     errMsg.includes("limit exceeded") || 
     errCode.includes("resource-exhausted") ||
     errCode.includes("quota")
   );
-  if (isExceeded) {
-    localStorage.setItem("paopao_firestore_quota_exceeded", "true");
-  }
-  return isExceeded;
 }
 
 function handleQuotaError(err: any) {
@@ -289,6 +290,42 @@ export async function tryForceReconnectAndSync() {
     "settings",
     "เชื่อมต่อระบบคลาวด์สำเร็จ",
     "ระบบได้ทำการตรวจสอบการเชื่อมต่อและซิงก์ข้อมูลออฟไลน์ทั้งหมดขึ้นระบบคลาวด์เรียลไทม์เรียบร้อยแล้วค่ะ หลังจากที่ท่านอัปเกรดฐานข้อมูล",
+    "ผู้ดูแลระบบ"
+  );
+}
+
+export async function forceReconnectAndSyncWithoutCheck() {
+  // 1. Enable network
+  await enableNetwork(db);
+  
+  // 2. FORCE Clear the quota exceeded flag so that writes can happen
+  localStorage.removeItem("paopao_firestore_quota_exceeded");
+
+  // 3. Read all offline-stored data
+  const localSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
+  const localUsers = getStoredData<User[]>("paopao_users", SEED_USERS);
+  const localProducts = getStoredData<Product[]>("paopao_products", SEED_PRODUCTS);
+  const localNotifications = getStoredData<SystemNotification[]>("paopao_notifications", SEED_NOTIFICATIONS);
+  const localOrders = getStoredData<Order[]>("paopao_orders", SEED_ORDERS);
+  const localChats = getStoredData<ChatMessage[]>("paopao_chats", SEED_CHATS);
+  const localWithdrawals = getStoredData<WithdrawalRequest[]>("paopao_withdrawals", SEED_WITHDRAWALS);
+  const localDeposits = getStoredData<DepositRequest[]>("paopao_deposits", []);
+
+  // 4. Directly attempt to write everything back to Firestore
+  await saveToFirestore("paopao_settings", localSettings);
+  await saveToFirestore("paopao_users", localUsers);
+  await saveToFirestore("paopao_products", localProducts);
+  await saveToFirestore("paopao_notifications", localNotifications);
+  await saveToFirestore("paopao_orders", localOrders);
+  await saveToFirestore("paopao_chats", localChats);
+  await saveToFirestore("paopao_withdrawals", localWithdrawals);
+  await saveToFirestore("paopao_deposits", localDeposits);
+
+  // Log a success action log
+  logOnlineAction(
+    "settings",
+    "บังคับเชื่อมต่อคลาวด์สำเร็จ",
+    "ผู้ใช้เลือกบังคับเชื่อมต่อระบบคลาวด์โดยข้ามขั้นตอนทดสอบอ่าน โหมดเรียลไทม์ได้รับการกู้คืนแล้ว",
     "ผู้ดูแลระบบ"
   );
 }
