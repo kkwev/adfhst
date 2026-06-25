@@ -22,7 +22,7 @@ import {
 } from './db/local_db';
 import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "./db/firebase";
-import { initializeFirestoreDB, saveToFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork } from "./db/firestore_service";
+import { initializeFirestoreDB, saveToFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync } from "./db/firestore_service";
 import { AlertTriangle } from "lucide-react";
 
 interface CartItem {
@@ -50,6 +50,7 @@ export default function App() {
   const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(
     localStorage.getItem("paopao_firestore_quota_exceeded") === "true"
   );
+  const [isConnectingCloud, setIsConnectingCloud] = useState<boolean>(false);
 
   // Intercept any click on buttons/interactive elements when user is not logged in to redirect instantly
   useEffect(() => {
@@ -1008,10 +1009,19 @@ export default function App() {
     alert('สมัครสมาชิกและเข้าสู่ระบบสำเร็จเรียบร้อยแล้วค่ะ! ยินดีต้อนรับสู่ SEPHORA THAILAND ค่ะ 🎉');
   };
 
-  const handleRetryFirestoreConnection = () => {
-    localStorage.removeItem("paopao_firestore_quota_exceeded");
-    setFirestoreQuotaExceeded(false);
-    window.location.reload();
+  const handleRetryFirestoreConnection = async () => {
+    setIsConnectingCloud(true);
+    try {
+      await tryForceReconnectAndSync();
+      setFirestoreQuotaExceeded(false);
+      setIsConnectingCloud(false);
+      alert("🎉 เชื่อมต่อสำเร็จ! ข้อมูลสินค้าและการกระทำล่าสุดของคุณทั้งหมดได้รับการอัปโหลดขึ้น Cloud Database และซิงก์เรียลไทม์เรียบร้อยแล้วค่ะ");
+      window.location.reload();
+    } catch (e: any) {
+      console.error(e);
+      setIsConnectingCloud(false);
+      alert("❌ ยังเชื่อมต่อคลาวด์ไม่ได้: โควตาคลาวด์ของคุณอาจจะยังมีข้อจำกัด หรือ Google Firebase ยังอัปเดตแผนใหม่ไม่เสร็จสิ้นสมบูรณ์ กรุณาลองใหม่อีกครั้งในภายหลังค่ะ ระบบจะยังคงรักษาข้อมูลทั้งหมดของคุณไว้ในเครื่องอย่างปลอดภัยในโหมดออฟไลน์ค่ะ");
+    }
   };
 
   return (
@@ -1037,9 +1047,17 @@ export default function App() {
               </a>
               <button 
                 onClick={handleRetryFirestoreConnection}
-                className="bg-amber-900 hover:bg-amber-950 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm transition-colors cursor-pointer"
+                disabled={isConnectingCloud}
+                className={`bg-amber-900 hover:bg-amber-950 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1 ${isConnectingCloud ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                ลองเชื่อมต่อใหม่
+                {isConnectingCloud ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    กำลังทดสอบและซิงก์...
+                  </>
+                ) : (
+                  "ลองเชื่อมต่อใหม่"
+                )}
               </button>
             </div>
           </div>
