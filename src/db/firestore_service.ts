@@ -29,7 +29,8 @@ import {
   SEED_CHATS,
   SEED_WITHDRAWALS, 
   DEFAULT_SETTINGS,
-  getStoredData
+  getStoredData,
+  logOnlineAction
 } from "./local_db";
 
 let onQuotaExceededCallback: (() => void) | null = null;
@@ -250,4 +251,44 @@ export async function disableFirestoreNetwork() {
   } catch (e) {
     console.error("Error disabling Firestore network:", e);
   }
+}
+
+export async function tryForceReconnectAndSync() {
+  // 1. Enable network
+  await enableNetwork(db);
+  
+  // 2. Perform server read test to verify quota is restored
+  const settingsRef = doc(db, "settings", "main");
+  await getDocFromServer(settingsRef);
+
+  // 3. Clear the quota exceeded flag
+  localStorage.removeItem("paopao_firestore_quota_exceeded");
+
+  // 4. Read all offline-stored data
+  const localSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
+  const localUsers = getStoredData<User[]>("paopao_users", SEED_USERS);
+  const localProducts = getStoredData<Product[]>("paopao_products", SEED_PRODUCTS);
+  const localNotifications = getStoredData<SystemNotification[]>("paopao_notifications", SEED_NOTIFICATIONS);
+  const localOrders = getStoredData<Order[]>("paopao_orders", SEED_ORDERS);
+  const localChats = getStoredData<ChatMessage[]>("paopao_chats", SEED_CHATS);
+  const localWithdrawals = getStoredData<WithdrawalRequest[]>("paopao_withdrawals", SEED_WITHDRAWALS);
+  const localDeposits = getStoredData<DepositRequest[]>("paopao_deposits", []);
+
+  // 5. Force save them back to Firestore (since the quota exceeded flag has been cleared)
+  await saveToFirestore("paopao_settings", localSettings);
+  await saveToFirestore("paopao_users", localUsers);
+  await saveToFirestore("paopao_products", localProducts);
+  await saveToFirestore("paopao_notifications", localNotifications);
+  await saveToFirestore("paopao_orders", localOrders);
+  await saveToFirestore("paopao_chats", localChats);
+  await saveToFirestore("paopao_withdrawals", localWithdrawals);
+  await saveToFirestore("paopao_deposits", localDeposits);
+
+  // Log a success action log
+  logOnlineAction(
+    "settings",
+    "เชื่อมต่อระบบคลาวด์สำเร็จ",
+    "ระบบได้ทำการตรวจสอบการเชื่อมต่อและซิงก์ข้อมูลออฟไลน์ทั้งหมดขึ้นระบบคลาวด์เรียลไทม์เรียบร้อยแล้วค่ะ หลังจากที่ท่านอัปเกรดฐานข้อมูล",
+    "ผู้ดูแลระบบ"
+  );
 }
