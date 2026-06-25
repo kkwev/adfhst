@@ -22,7 +22,7 @@ import {
 } from './db/local_db';
 import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "./db/firebase";
-import { initializeFirestoreDB, saveToFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync } from "./db/firestore_service";
+import { initializeFirestoreDB, saveToFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync, forceReconnectAndSyncWithoutCheck } from "./db/firestore_service";
 import { AlertTriangle } from "lucide-react";
 
 interface CartItem {
@@ -47,9 +47,7 @@ export default function App() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [deposits, setDeposits] = useState<DepositRequest[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(
-    localStorage.getItem("paopao_firestore_quota_exceeded") === "true"
-  );
+  const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(false);
   const [isConnectingCloud, setIsConnectingCloud] = useState<boolean>(false);
 
   // Intercept any click on buttons/interactive elements when user is not logged in to redirect instantly
@@ -213,6 +211,11 @@ export default function App() {
         unsubscibers = [];
       }
     };
+
+    // Clear legacy quota exceeded flag on load since user has upgraded to Blaze Plan!
+    try {
+      localStorage.removeItem("paopao_firestore_quota_exceeded");
+    } catch (e) {}
 
     onFirestoreQuotaExceeded(() => {
       handleQuotaErrorGlobal();
@@ -907,106 +910,7 @@ export default function App() {
     setStoredData("paopao_orders", updated);
     setStoredData("paopao_notifications", newNotifs);
     syncFromLocalStorage();
-    alert(`อนุมัติคำสั่งซื้อบิล ${orderId} และจัดส่งเรียบร้อยแล้วค่ะ 🚚`);
-  };
-
-  // --- WITHDRAW DEPOSIT APPLICATION ---
-  const handleRequestWithdrawal = (amount: number) => {
-    if (!currentUser) return;
-
-    const totalWithdrawsCount = withdrawals.length;
-    const paddingNum = String(totalWithdrawsCount + 1).padStart(5, '0');
-    const reqId = `W${paddingNum}`;
-
-    const freshWithdraw: WithdrawalRequest = {
-      id: reqId,
-      merchantId: currentUser.id,
-      merchantPhone: currentUser.phone,
-      merchantName: currentUser.name,
-      amount,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    const newWithdrawalsList = [freshWithdraw, ...withdrawals];
-    setWithdrawals(newWithdrawalsList);
-    setStoredData("paopao_withdrawals", newWithdrawalsList);
-
-    syncFromLocalStorage();
-  };
-
-  // --- NEW PRODUCTS LOG ADD BY MERCHANTS ---
-  const handleAddProduct = (productData: Omit<Product, 'id' | 'salesVolume'>) => {
-    const countTotalProds = products.length;
-    const paddingNum = String(countTotalProds + 1).padStart(5, '0');
-    const assignedId = `P${paddingNum}`;
-
-    const newProd: Product = {
-      ...productData,
-      id: assignedId,
-      salesVolume: 0
-    };
-
-    const updatedProds = [newProd, ...products];
-    setProducts(updatedProds);
-    setStoredData("paopao_products", updatedProds);
-    alert(`ส่งยื่นตรวจสินค้าใหม่ลงทะเบียนสำเร็จ! รหัสสินค้าคือ [${assignedId}] ยอดการตรวจสอบจะค้างรอการอนุญาตประเมินจากแอดมินก่อนขึ้นจริงหน้าร้านค่ะ`);
-  };
-
-  // --- EDIT PRODUCT BY STORE OWNER ---
-  const handleEditProduct = (updatedProd: Product) => {
-    const updated = products.map(p => {
-      if (p.id === updatedProd.id) {
-        return updatedProd;
-      }
-      return p;
-    });
-
-    setProducts(updated);
-    setStoredData("paopao_products", updated);
-    alert('บันทึกแก้ไขสินค้า และ อัปเดตข้อมูลจำนวนผ้าคลังสำแดงเรียบร้อย!');
-  };
-
-  // Authenticate triggers
-  const handleLoginSuccess = (userObj: User) => {
-    localStorage.setItem("paopao_session_user", JSON.stringify(userObj));
-    setCurrentUser(userObj);
-    setActiveTab('home');
-
-    logOnlineAction(
-      "users",
-      "เข้าสู่ระบบสำเร็จ",
-      `ผู้ใช้ ${userObj.name} (${userObj.id}) ได้ทำการล็อกอินเข้าสู่ระบบเรียบร้อย`,
-      `${userObj.name} (${userObj.id})`
-    );
-  };
-
-  const handleRegisterSuccess = (newUserObj: User) => {
-    // Read the absolute latest users from localStorage to preserve concurrent modifications or registrations
-    const freshUsers = getStoredData<User[]>("paopao_users", []);
-    
-    // Uniqueness fallback check on active master listing
-    if (freshUsers.some(u => u.phone === newUserObj.phone)) {
-      alert('เบอร์โทรศัพท์มือถือนี้สมัครสมาชิกระบบแล้วล่ะค่ะ!');
-      return;
-    }
-
-    const updatedUsers = [...freshUsers, newUserObj];
-    setUsers(updatedUsers);
-    setStoredData("paopao_users", updatedUsers);
-    
-    logOnlineAction(
-      "users",
-      "สมัครสมาชิกสำเร็จ",
-      `ผู้ใช้ชื่อ ${newUserObj.name} (โทร: ${newUserObj.phone}) ลงทะเบียนสมัครสมาชิกใหม่สำเร็จ (บทบาท: ${newUserObj.role})`,
-      `${newUserObj.name} (${newUserObj.id})`
-    );
-
-    // Automatically log the newly registered user in immediately, and route to home
-    localStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
-    setCurrentUser(newUserObj);
-    setActiveTab('home');
-    alert('สมัครสมาชิกและเข้าสู่ระบบสำเร็จเรียบร้อยแล้วค่ะ! ยินดีต้อนรับสู่ SEPHORA THAILAND ค่ะ 🎉');
+    alert(`อนุมัติคำสั่งซื้อบิล ${orderId} เรียบร้อยแล้วค่ะ! กำลังดำเนินการจัดส่งสินค้าในลำดับถัดไป 🎉`);
   };
 
   const handleRetryFirestoreConnection = async () => {
@@ -1020,8 +924,103 @@ export default function App() {
     } catch (e: any) {
       console.error(e);
       setIsConnectingCloud(false);
-      alert("❌ ยังเชื่อมต่อคลาวด์ไม่ได้: โควตาคลาวด์ของคุณอาจจะยังมีข้อจำกัด หรือ Google Firebase ยังอัปเดตแผนใหม่ไม่เสร็จสิ้นสมบูรณ์ กรุณาลองใหม่อีกครั้งในภายหลังค่ะ ระบบจะยังคงรักษาข้อมูลทั้งหมดของคุณไว้ในเครื่องอย่างปลอดภัยในโหมดออฟไลน์ค่ะ");
+      alert("❌ ยังเชื่อมต่อคลาวด์ไม่ได้: โควตาคลาวด์ของคุณอาจจะยังมีข้อจำกัด หรือ Google Firebase ยังอัปเดตแผนใหม่ไม่เสร็จสิ้นสมบูรณ์ หากคุณต้องการเปิดใช้โหมดเรียลไทม์ทันทีโดยข้ามการทดสอบความเร็ว/อ่าน สามารถเลือกกดปุ่ม 'บังคับออนไลน์ ⚡' ได้เลยค่ะ");
     }
+  };
+
+  const handleForceBypassQuotaConnection = async () => {
+    setIsConnectingCloud(true);
+    try {
+      await forceReconnectAndSyncWithoutCheck();
+      setFirestoreQuotaExceeded(false);
+      setIsConnectingCloud(false);
+      alert("🎉 บังคับเชื่อมต่อออนไลน์เรียบร้อยแล้วค่ะ! ระบบได้ข้ามขั้นตอนตรวจสอบ และพยายามอัปโหลดข้อมูลออฟไลน์ขึ้นเซิร์ฟเวอร์ให้คุณทันทีค่ะ");
+      window.location.reload();
+    } catch (e: any) {
+      console.error(e);
+      setIsConnectingCloud(false);
+      alert(`⚠️ บังคับเปิดออนไลน์แล้ว แต่พบปัญหาการเขียนข้อมูลลงคลาวด์บางส่วน: "${e?.message || e}" ระบบได้ล้างสถานะออฟไลน์ให้เรียบร้อยแล้วเพื่อให้ตัวเครื่องพยายามซิงก์แบบเรียลไทม์โดยตรงค่ะ`);
+      localStorage.removeItem("paopao_firestore_quota_exceeded");
+      setFirestoreQuotaExceeded(false);
+      window.location.reload();
+    }
+  };
+
+  const handleLoginSuccess = (userObj: User) => {
+    localStorage.setItem("paopao_session_user", JSON.stringify(userObj));
+    setCurrentUser(userObj);
+    setActiveTab("home");
+    alert(`ยินดีต้อนรับกลับมาค่ะ คุณ ${userObj.name} 🎉`);
+  };
+
+  const handleRegisterSuccess = (newUserObj: User) => {
+    const freshUsers = getStoredData<User[]>("paopao_users", users);
+    if (freshUsers.some(u => u.phone === newUserObj.phone)) {
+      alert("เบอร์โทรศัพท์นี้ถูกใช้สมัครสมาชิกระบบแล้วล่ะค่ะ!");
+      return;
+    }
+    const updatedUsers = [...freshUsers, newUserObj];
+    setUsers(updatedUsers);
+    setStoredData("paopao_users", updatedUsers);
+    logOnlineAction("users", "สมัครสมาชิกสำเร็จ", `ผู้ใช้ชื่อ ${newUserObj.name} (โทร: ${newUserObj.phone}) ลงทะเบียนสมัครสมาชิกใหม่สำเร็จ (บทบาท: ${newUserObj.role})`, `${newUserObj.name} (${newUserObj.id})`);
+    localStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
+    setCurrentUser(newUserObj);
+    setActiveTab("home");
+    alert("สมัครสมาชิกและเข้าสู่ระบบสำเร็จเรียบร้อยแล้วค่ะ! ยินดีต้อนรับสู่ SEPHORA THAILAND ค่ะ 🎉");
+  };
+
+  const handleAddProduct = (productData: Omit<Product, 'id' | 'salesVolume'>) => {
+    const newId = `P-${Date.now()}`;
+    const newProduct: Product = {
+      ...productData,
+      id: newId,
+      salesVolume: 0,
+    };
+    const updated = [newProduct, ...products];
+    setProducts(updated);
+    setStoredData("paopao_products", updated);
+    syncFromLocalStorage();
+    alert(`เพิ่มสินค้า "${newProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!`);
+  };
+
+  const handleEditProduct = (updatedProduct: Product) => {
+    const updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+    setProducts(updated);
+    setStoredData("paopao_products", updated);
+    syncFromLocalStorage();
+    alert(`แก้ไขข้อมูลสินค้า "${updatedProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!`);
+  };
+
+  const handleRequestWithdrawal = (amount: number) => {
+    if (!currentUser) return;
+    const newRequest: WithdrawalRequest = {
+      id: `W-${Date.now()}`,
+      merchantId: currentUser.id,
+      merchantPhone: currentUser.phone,
+      merchantName: currentUser.name,
+      amount,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    const updatedUser = {
+      ...currentUser,
+      wallet: (currentUser.wallet || 0) - amount
+    };
+    setCurrentUser(updatedUser);
+    localStorage.setItem("paopao_session_user", JSON.stringify(updatedUser));
+    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUser : u);
+    setUsers(updatedUsers);
+    setStoredData("paopao_users", updatedUsers);
+    const updatedWithdrawals = [newRequest, ...withdrawals];
+    setWithdrawals(updatedWithdrawals);
+    setStoredData("paopao_withdrawals", updatedWithdrawals);
+    syncFromLocalStorage();
+    logOnlineAction(
+      "withdrawals",
+      "ส่งคำขอถอนเงิน",
+      `ผู้ใช้ชื่อ ${currentUser.name} ส่งคำขอถอนเงินจำนวน ฿${amount} สถานะ: pending`,
+      `${currentUser.name} (${currentUser.id})`
+    );
   };
 
   return (
