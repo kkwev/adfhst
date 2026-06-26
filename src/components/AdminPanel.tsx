@@ -6,8 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, DollarSign, Users, ShieldAlert, ShoppingBag, MessageSquare, Bell, 
-  RefreshCw, Check, X, Search, UserPlus, Trash, Trash2, Edit3, Send, AlertTriangle, Eye, Server, ToggleLeft, Database,
-  HardDrive, UploadCloud, CheckCircle, BarChart2
+  RefreshCw, Check, X, Search, UserPlus, Trash, Trash2, Edit3, Send, AlertTriangle, Eye, Server, ToggleLeft, Database
 } from 'lucide-react';
 import { 
   User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, DepositRequest, OnlineActionLog 
@@ -140,185 +139,6 @@ export default function AdminPanel({
   const [actionLogs, setActionLogs] = useState<OnlineActionLog[]>([]);
   const [logSearchText, setLogSearchText] = useState('');
   const [logCategoryFilter, setLogCategoryFilter] = useState<string>('all');
-
-  // 10. Storage & Database Space Monitor states
-  const [storageStats, setStorageStats] = useState<{
-    totalBytes: number;
-    percentage: number;
-    details: { key: string; label: string; bytes: number; count: number }[];
-  }>({ totalBytes: 0, percentage: 0, details: [] });
-  const [testUploadFile, setTestUploadFile] = useState<{ name: string; size: number; dataUrl: string } | null>(null);
-  const [isTestUploading, setIsTestUploading] = useState(false);
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0.00 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const updateStorageStatistics = () => {
-    let total = 0;
-    const itemsList: { key: string; label: string; bytes: number; count: number }[] = [];
-    
-    const collectionsMeta = [
-      { key: "paopao_products", label: "คลังข้อมูลสินค้าและรูปภาพในแผง (Products Stock & Base64 Images)", data: products },
-      { key: "paopao_users", label: "ข้อมูลรายชื่อและกระเป๋าเงินสมาชิก (User Accounts & Wallets)", data: users },
-      { key: "paopao_orders", label: "ข้อมูลประวัติคำสั่งซื้อและการออกบิล (Orders & Invoices)", data: orders },
-      { key: "paopao_chats", label: "ประวัติการแชทระหว่างร้านและฝ่ายสนับสนุน (Chats & Support Logs)", data: chats },
-      { key: "paopao_notifications", label: "ระบบส่งประกาศแจ้งเตือนส่วนกลาง (Notifications Broadcasts)", data: notifications },
-      { key: "paopao_withdrawals", label: "ใบคำขออนุมัติถอนเงินสด (Withdrawal Slip Records)", data: withdrawals },
-      { key: "paopao_deposits", label: "สลิปและใบนำฝากเครดิตเข้าระบบ (Deposit Slips & Records)", data: deposits },
-      { key: "paopao_settings", label: "การตั้งค่าระบบ ธีมสี และภาพแบนเนอร์หลัก (System Brand Settings & Slides)", countVal: 1 }
-    ];
-
-    for (const col of collectionsMeta) {
-      const rawVal = localStorage.getItem(col.key) || "";
-      const bytes = new Blob([rawVal]).size;
-      total += bytes;
-      
-      let count = 0;
-      if (col.data) {
-        count = col.data.length;
-      } else if (col.countVal !== undefined) {
-        count = col.countVal;
-      } else {
-        try {
-          const parsed = JSON.parse(rawVal);
-          count = Array.isArray(parsed) ? parsed.length : 1;
-        } catch {
-          count = rawVal ? 1 : 0;
-        }
-      }
-      
-      itemsList.push({
-        key: col.key,
-        label: col.label,
-        bytes,
-        count
-      });
-    }
-
-    const testUploadsRaw = localStorage.getItem("paopao_test_uploads") || "[]";
-    const testUploadsBytes = new Blob([testUploadsRaw]).size;
-    total += testUploadsBytes;
-    let testCount = 0;
-    try {
-      testCount = JSON.parse(testUploadsRaw).length;
-    } catch {
-      testCount = 0;
-    }
-    
-    itemsList.push({
-      key: "paopao_test_uploads",
-      label: "ไฟล์จำลองทดสอบเพิ่มเข้าระบบโดยแอดมิน (Test System Uploads)",
-      bytes: testUploadsBytes,
-      count: testCount
-    });
-
-    // Other keys
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("paopao_") && !itemsList.some(item => item.key === key) && key !== "paopao_session_user") {
-        const val = localStorage.getItem(key) || "";
-        const bytes = new Blob([val]).size;
-        total += bytes;
-        itemsList.push({
-          key,
-          label: `ไฟล์ข้อมูลระบบย่อย (${key})`,
-          bytes,
-          count: 1
-        });
-      }
-    }
-
-    const limitBytes = 50 * 1024 * 1024 * 1024; // 50 GB
-    const percentage = (total / limitBytes) * 100;
-
-    setStorageStats({
-      totalBytes: total,
-      percentage,
-      details: itemsList.sort((a, b) => b.bytes - a.bytes)
-    });
-  };
-
-  useEffect(() => {
-    updateStorageStatistics();
-  }, [users, products, orders, chats, notifications, withdrawals, deposits]);
-
-  const handleTestFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsTestUploading(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setTestUploadFile({
-          name: file.name,
-          size: file.size,
-          dataUrl: base64
-        });
-      }
-      setIsTestUploading(false);
-    };
-    reader.onerror = () => {
-      alert("เกิดข้อผิดพลาดในการอ่านไฟล์");
-      setIsTestUploading(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSaveTestFileToStorage = () => {
-    if (!testUploadFile) return;
-
-    try {
-      const currentRaw = localStorage.getItem("paopao_test_uploads") || "[]";
-      const current = JSON.parse(currentRaw);
-      const newFileObj = {
-        id: `TEST-${Date.now()}`,
-        name: testUploadFile.name,
-        size: testUploadFile.size,
-        dataUrl: testUploadFile.dataUrl,
-        uploadedAt: new Date().toISOString()
-      };
-      const updated = [...current, newFileObj];
-      
-      // Attempt to save to localStorage
-      localStorage.setItem("paopao_test_uploads", JSON.stringify(updated));
-      setTestUploadFile(null);
-      updateStorageStatistics();
-      
-      // Log this action
-      logOnlineAction(
-        "DATABASE_WRITE",
-        "SIMULATE_WRITE",
-        `อัปโหลดไฟล์ทดสอบ "${newFileObj.name}" ขนาด ${(newFileObj.size / 1024).toFixed(2)} KB ลงคลังจำลอง`,
-        `${currentUser?.name || "Admin"} (${currentUser?.role || "Admin"})`
-      );
-      
-      alert("บันทึกไฟล์ทดสอบลงพื้นที่จัดเก็บจริง (localStorage) สำเร็จแล้ว! สังเกตขนาดพื้นที่สีแดงเพิ่มขึ้นทันทีค่ะ");
-    } catch (err) {
-      alert("⚠️ บันทึกไฟล์ไม่สำเร็จ! หน่วยความจำแผงจำลองเต็มขีดจำกัด (เกินความจุโควต้าบราวเซอร์ 5MB) กรุณากดปุ่มเคลียร์ไฟล์เก่าออกก่อนค่ะ");
-    }
-  };
-
-  const handleClearTestStorage = () => {
-    localStorage.removeItem("paopao_test_uploads");
-    updateStorageStatistics();
-    
-    // Log this action
-    logOnlineAction(
-      "DATABASE_WRITE",
-      "CLEAR_STORAGE",
-      `ล้างข้อมูลไฟล์ทดสอบอัปโหลดทั้งหมดเพื่อคืนพื้นที่จำลอง`,
-      `${currentUser?.name || "Admin"} (${currentUser?.role || "Admin"})`
-    );
-    
-    alert("ล้างไฟล์จำลองทดสอบทั้งหมด เรียบร้อย คืนพื้นที่เสร็จสมบูรณ์ค่ะ");
-  };
 
   useEffect(() => {
     setActionLogs(getOnlineActionLogs());
@@ -700,10 +520,25 @@ export default function AdminPanel({
     }
 
     // Allocate ID prefix
-    const countThisRole = users.filter(u => u.role === createUserRole).length;
-    const prefix = createUserRole === 'Customer' ? 'M' : createUserRole === 'Merchant' ? 'S' : 'A';
-    const paddingNum = String(countThisRole + 1).padStart(5, '0');
-    const allocatedId = `${prefix}${paddingNum}`;
+    let allocatedId = '';
+    if (createUserRole === 'Customer') {
+      const cUsers = users.filter(u => u.role === 'Customer' && u.id.startsWith('M'));
+      const nums = cUsers.map(u => parseInt(u.id.substring(1), 10)).filter(n => !isNaN(n));
+      const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+      const nextNum = Math.max(maxNum, 23132) + Math.floor(Math.random() * 30) + 1;
+      allocatedId = `M${nextNum}`;
+    } else if (createUserRole === 'Merchant') {
+      const mUsers = users.filter(u => u.role === 'Merchant' && u.id.startsWith('S'));
+      const nums = mUsers.map(u => parseInt(u.id.substring(1), 10)).filter(n => !isNaN(n));
+      const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+      const nextNum = Math.max(maxNum, 42134) + Math.floor(Math.random() * 30) + 1;
+      allocatedId = `S${nextNum}`;
+    } else {
+      const aUsers = users.filter(u => u.role === 'Admin' && u.id.startsWith('A'));
+      const nums = aUsers.map(u => parseInt(u.id.substring(1), 10)).filter(n => !isNaN(n));
+      const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+      allocatedId = `A${String(maxNum + 1).padStart(5, '0')}`;
+    }
 
     const newUser: User = {
       id: allocatedId,
@@ -716,7 +551,8 @@ export default function AdminPanel({
       bankName: createUserRole === 'Merchant' ? createBankName : undefined,
       bankAccount: createUserRole === 'Merchant' ? createBankAccount : undefined,
       bankHolderName: createUserRole === 'Merchant' ? createBankHolder : undefined,
-      avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${createUserName}`
+      avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${createUserName}`,
+      isOrderEnabled: createUserRole === 'Merchant' ? false : true,
     };
 
     onUpdateUsers([...users, newUser]);
@@ -1184,8 +1020,7 @@ export default function AdminPanel({
 
         {/* 4.1. SYSTEM SETTINGS MODULE */}
         {activeModule === 'settings' && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-3xl p-6 border border-gray-150 shadow-sm space-y-6">
+          <div className="bg-white rounded-3xl p-6 border border-gray-150 shadow-sm space-y-6">
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">1. การตั้งค่าสไตล์เว็บบอร์ด (System Settings UI/UX)</h3>
             
             <form onSubmit={handleSaveSettings} className="space-y-4">
@@ -1433,198 +1268,7 @@ export default function AdminPanel({
               </button>
             </form>
           </div>
-
-          {/* 2. ระบบรายงานพื้นที่จัดเก็บข้อมูลจริงบนดิสก์ (Cloud Storage & Real-time Database Allocation Monitor) */}
-          <div className="bg-white rounded-3xl p-6 border border-gray-150 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4">
-              <div>
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">2. ระบบวิเคราะห์และตรวจสอบพื้นที่จัดเก็บข้อมูลจริง (Real-time Storage Analyzer)</h3>
-                <p className="text-[10px] text-gray-400 font-medium mt-1">รายงานสถานะและการเติบโตของเซิร์ฟเวอร์ระบบและโครงสร้างฐานข้อมูลจากขนาดการใช้งานดิสก์จริง</p>
-              </div>
-              <div className="flex items-center gap-2 bg-[#FF1E27]/5 px-3 py-1.5 rounded-xl border border-[#FF1E27]/10 shrink-0">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                <span className="text-[10px] font-black font-mono text-[#FF1E27] tracking-wider uppercase">ACTIVE TRACKING</span>
-              </div>
-            </div>
-
-            {/* Progress Bar & Display */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center bg-gray-50/50 p-5 rounded-2xl border border-gray-100">
-              <div className="space-y-2 col-span-2">
-                <div className="flex justify-between items-end text-xs font-bold text-gray-700">
-                  <div className="flex items-center gap-1.5">
-                    <HardDrive size={15} className="text-[#FF1E27] shrink-0" />
-                    <span className="font-extrabold text-gray-800">พื้นที่ดิสก์และคลังฐานข้อมูลเว็บไซต์ (Disk Usage)</span>
-                  </div>
-                  <span className="font-mono text-[11px] text-gray-500">
-                    {formatBytes(storageStats.totalBytes)} / <strong className="text-gray-800 font-extrabold">50.00 GB</strong>
-                  </span>
-                </div>
-
-                {/* Elegant dynamic progress bar with glowing slider effect */}
-                <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden relative shadow-inner">
-                  <div 
-                    className="h-full rounded-full bg-gradient-to-r from-[#FF1E27] via-red-500 to-[#FF5E62] transition-all duration-500 shadow-lg relative"
-                    style={{ width: `${Math.max(0.0001, storageStats.percentage)}%` }}
-                  >
-                    <div className="absolute right-0 top-0 h-full w-1 bg-white/40 animate-pulse" />
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center text-[9.5px] text-gray-400 font-bold">
-                  <span>ขีดจำกัดสูงสุด: 50.00 GB (53,687,091,200 Bytes)</span>
-                  <span className="text-[#FF1E27] font-mono font-black">
-                    สัดส่วนใช้งานจริง: {storageStats.percentage.toFixed(6)} %
-                  </span>
-                </div>
-              </div>
-
-              {/* Info Card */}
-              <div className="bg-white p-4 rounded-xl border border-gray-150 space-y-1.5 flex flex-col justify-center shadow-xs">
-                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest font-mono">สรุปขนาดรวม (Overall Summary)</span>
-                <div className="flex items-baseline gap-1 text-gray-800 font-black">
-                  <span className="text-xl font-mono">{formatBytes(storageStats.totalBytes).split(' ')[0]}</span>
-                  <span className="text-xs">{formatBytes(storageStats.totalBytes).split(' ')[1] || 'B'}</span>
-                </div>
-                <p className="text-[9px] text-gray-400 font-bold leading-relaxed">
-                  คำนวณแบบเรียลไทม์จาก Binary/JSON serialized payload ของทุกตารางในระบบจัดเก็บหลัก
-                </p>
-              </div>
-            </div>
-
-            {/* Grid: Breakdown Table & Lab Simulator */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* 1. Breakdown Table */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-1.5">
-                  <BarChart2 size={14} className="text-gray-500" />
-                  <span className="text-[11px] font-black text-gray-700 uppercase tracking-wider font-mono">โครงสร้างย่อยตารางจัดเก็บ (Data Table Sizes Breakdown)</span>
-                </div>
-
-                <div className="border border-gray-150 rounded-2xl overflow-hidden shadow-xs">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[11px] font-bold">
-                      <thead className="bg-gray-100 text-gray-500 text-[10px] font-mono border-b uppercase">
-                        <tr>
-                          <th className="p-3">คลังข้อมูลย่อย (Collection)</th>
-                          <th className="p-3 text-center">แถวข้อมูล (Rows)</th>
-                          <th className="p-3 text-right">ขนาดจริง (Size)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-gray-700 bg-white">
-                        {storageStats.details.map((item) => (
-                          <tr key={item.key} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="p-3">
-                              <span className="block text-gray-800 text-[10.5px] font-extrabold">{item.label}</span>
-                              <span className="block text-[8.5px] text-gray-400 font-mono select-all">{item.key}</span>
-                            </td>
-                            <td className="p-3 text-center font-mono font-black text-gray-500">
-                              {item.count.toLocaleString()} รายการ
-                            </td>
-                            <td className="p-3 text-right font-mono font-black text-[#FF1E27] bg-red-50/10">
-                              {formatBytes(item.bytes)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Interactive Burden Simulator */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-1.5">
-                  <UploadCloud size={14} className="text-[#FF1E27]" />
-                  <span className="text-[11px] font-black text-gray-700 uppercase tracking-wider font-mono">ห้องทดลองจำลองพื้นที่เก็บข้อมูล (Storage Burden Lab Simulator)</span>
-                </div>
-
-                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-150 space-y-4">
-                  <p className="text-[10px] text-gray-500 font-bold leading-relaxed bg-white p-3 rounded-xl border border-slate-150 shadow-xs">
-                    💡 <strong className="text-gray-700">คู่มือแนะนำแอดมิน:</strong> คุณสามารถทดสอบอัตราการสิ้นเปลืองพื้นที่โดยอัปโหลดไฟล์/ภาพจริงจากคอมพิวเตอร์ของคุณ ระบบจะแปลงไฟล์เป็น Base64 Payload และคำนวณว่าไฟล์นั้นกินความจุเนื้อที่และสัดส่วนบนฐานข้อมูลไปเท่าไหร่ หากกดบันทึก ข้อมูลไฟล์จริงจะถูกเก็บจำลองและซ้อนขึ้นบนแถบวัดความจุแบบสดทันทีค่ะ!
-                  </p>
-
-                  <div className="space-y-3">
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 rounded-xl p-4 bg-white hover:border-[#FF1E27] transition-colors relative cursor-pointer group">
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf,text/plain"
-                        onChange={handleTestFileUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <UploadCloud size={24} className="text-slate-400 group-hover:text-[#FF1E27] transition-colors mb-2" />
-                      <span className="text-[11px] font-black text-slate-700 group-hover:text-[#FF1E27] transition-colors">คลิกหรือลากวางไฟล์ที่นี่เพื่อทดสอบความจุ</span>
-                      <span className="text-[9px] text-slate-400 mt-1">จำกัดไฟล์เดี่ยวสูงสุด 1MB (ไฟล์ภาพ, เอกสาร, หรือข้อความ)</span>
-                    </div>
-
-                    {isTestUploading && (
-                      <div className="text-center py-2 text-[10px] font-bold text-gray-500 flex items-center justify-center gap-1.5">
-                        <span className="w-3.5 h-3.5 border-2 border-[#FF1E27] border-t-transparent rounded-full animate-spin"></span>
-                        กำลังอ่านไฟล์ขนาดจริง...
-                      </div>
-                    )}
-
-                    {testUploadFile && (
-                      <div className="bg-white p-3.5 rounded-xl border border-slate-150 space-y-3 shadow-xs animate-fade-in">
-                        <div className="flex items-start justify-between gap-3 text-xs">
-                          <div className="space-y-1 overflow-hidden">
-                            <span className="font-extrabold text-gray-800 block truncate">{testUploadFile.name}</span>
-                            <span className="text-[9px] font-mono text-gray-400 block">
-                              ขนาดไฟล์จริงบนฮาร์ดไดรฟ์: <strong className="text-gray-600 font-black">{(testUploadFile.size / 1024).toFixed(2)} KB</strong> ({testUploadFile.size.toLocaleString()} Bytes)
-                            </span>
-                            <span className="text-[9px] font-mono text-red-500 block">
-                              สัดส่วนการกินเนื้อที่ 50GB: <strong className="font-black">{(testUploadFile.size / (50 * 1024 * 1024 * 1024) * 100).toFixed(6)}%</strong>
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setTestUploadFile(null)}
-                            className="text-gray-400 hover:text-red-500 font-bold p-1"
-                            title="ยกเลิกไฟล์นี้"
-                          >
-                            ✕
-                          </button>
-                        </div>
-
-                        {testUploadFile.dataUrl.startsWith("data:image/") && (
-                          <div className="border rounded-lg overflow-hidden bg-slate-100 aspect-[16/9] w-full relative">
-                            <img src={testUploadFile.dataUrl} alt="Preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                          </div>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={handleSaveTestFileToStorage}
-                          className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-[10px] rounded-lg tracking-wide shadow transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          <CheckCircle size={13} />
-                          <span>ยืนยันจำลองการเขียนข้อมูลลงดิสก์แผงคุม (Simulate DB Write)</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Clear trigger options */}
-                    {storageStats.details.some(item => item.key === "paopao_test_uploads" && item.bytes > 2) && (
-                      <div className="pt-2 border-t flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleClearTestStorage}
-                          className="text-[9.5px] font-black text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-2 rounded-lg border border-red-200 shadow-xs transition-colors cursor-pointer flex items-center gap-1"
-                        >
-                          <Trash2 size={12} />
-                          <span>เคลียร์และกู้คืนพื้นที่ดิสก์จำลองทั้งหมด</span>
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      )}
+        )}
 
         {/* 4.2. FINANCIAL MANAGEMENT MODULE */}
         {activeModule === 'financial' && (
