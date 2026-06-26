@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Plus, Minus, Megaphone, Edit3, PlusCircle, CheckCircle, Tag, EyeOff, Sparkles, X, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { Product, User, SystemSettings, SystemNotification, ProductOption } from '../types';
+import { compressImage } from '../db/image_compressor';
 
 interface HomeTabProps {
   products: Product[];
@@ -407,13 +408,11 @@ export default function HomeTab({
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("รูปภาพขนาดใหญ่เกินไปค่ะ! (สูงสุดไม่เกิน 5MB) 📷");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
+      compressImage(file, 600, 0.6).then((base64String) => {
+        if (!base64String) {
+          alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ กรุณาลองเลือกรูปภาพอื่นนะคะ ❌");
+          return;
+        }
         if (isEdit) {
           if (editingProduct) {
             setEditingProduct({ ...editingProduct, image: base64String });
@@ -421,11 +420,10 @@ export default function HomeTab({
         } else {
           setNewProdImage(base64String);
         }
-      };
-      reader.onerror = () => {
-        alert("ไม่สามารถอ่านไฟล์รูปภาพได้ค่ะ กรุณาลองเลือกรูปภาพอื่นนะคะ ❌");
-      };
-      reader.readAsDataURL(file);
+      }).catch((err) => {
+        console.error("Compression error:", err);
+        alert("เกิดข้อผิดพลาดในการประมวลผลรูปภาพค่ะ ❌");
+      });
     }
   };
 
