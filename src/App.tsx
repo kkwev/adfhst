@@ -1056,7 +1056,7 @@ export default function App() {
     setProducts(updated);
     setStoredData("paopao_products", updated);
     syncFromLocalStorage();
-    alert(`เพิ่มสินค้า "${newProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!`);
+    alert(`เพิ่มสินค้า "${newProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ! ขณะนี้สินค้าถูกส่งไปยังระบบหลังบ้านเพื่อรอแอดมินอนุมัติก่อนวางจำหน่ายจริงในหน้าแรกค่ะ ⏳✨`);
   };
 
   const handleEditProduct = (updatedProduct: Product) => {
@@ -1064,7 +1064,8 @@ export default function App() {
     setProducts(updated);
     setStoredData("paopao_products", updated);
     syncFromLocalStorage();
-    alert(`แก้ไขข้อมูลสินค้า "${updatedProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!`);
+    const isPending = updatedProduct.status === 'pending';
+    alert(`แก้ไขข้อมูลสินค้า "${updatedProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!${isPending ? ' เนื่องจากคุณแก้ไขในฐานะผู้ขาย สถานะสินค้าจึงถูกปรับเป็น "รออนุมัติใหม่" เพื่อให้แอดมินตรวจสอบความถูกต้องอีกครั้งก่อนวางจำหน่ายค่ะ ⏳' : ''}`);
   };
 
   const handleRequestWithdrawal = (amount: number) => {
