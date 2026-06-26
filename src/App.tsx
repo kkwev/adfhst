@@ -190,6 +190,18 @@ export default function App() {
     };
   }, []);
 
+  // Synchronize currentUser with any updates in the users array (e.g. role changes by admin)
+  useEffect(() => {
+    if (!currentUser) return;
+    const matchedUser = users.find(u => u.id === currentUser.id);
+    if (matchedUser) {
+      if (JSON.stringify(matchedUser) !== JSON.stringify(currentUser)) {
+        setCurrentUser(matchedUser);
+        localStorage.setItem("paopao_session_user", JSON.stringify(matchedUser));
+      }
+    }
+  }, [users, currentUser?.id]);
+
   // Initialize DB once on load
   useEffect(() => {
     initializeDB();
