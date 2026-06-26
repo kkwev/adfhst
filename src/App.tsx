@@ -1243,7 +1243,17 @@ export default function App() {
             notifications={notifications} 
             deposits={deposits}
             onUpdateSettings={(updated) => { setSettings(updated); setStoredData("paopao_settings", updated); }}
-            onUpdateUsers={(updated) => { setUsers(updated); setStoredData("paopao_users", updated); }}
+            onUpdateUsers={(updated) => { 
+              setUsers(updated); 
+              setStoredData("paopao_users", updated); 
+              if (currentUser) {
+                const matched = updated.find(u => u.id === currentUser.id);
+                if (matched && JSON.stringify(matched) !== JSON.stringify(currentUser)) {
+                  setCurrentUser(matched);
+                  localStorage.setItem("paopao_session_user", JSON.stringify(matched));
+                }
+              }
+            }}
             onUpdateProducts={(updated) => { 
               const currentIds = new Set(updated.map(p => p.id));
               const deletedProducts = products.filter(p => !currentIds.has(p.id));
