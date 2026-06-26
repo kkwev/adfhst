@@ -465,7 +465,7 @@ export default function HomeTab({
       description: newProdDesc,
       image: imageUrl,
       price: newProdPrice,
-      status: (currentUser?.role === 'Merchant' ? 'pending' : 'approved') as 'pending' | 'approved', // Merchant requires admin check, admin immediate approve!
+      status: 'pending' as const, // All newly added products must go to admin approval first before being sold on the homepage!
       options: newOptions,
       totalStock: calculatedTotalStock,
       category: newProdCategory
@@ -500,7 +500,10 @@ export default function HomeTab({
     if (!editingProduct) return;
 
     // Align option stocks with edited totalStock
-    const alignedProduct = { ...editingProduct };
+    const alignedProduct = { 
+      ...editingProduct,
+      status: (currentUser?.role === 'Merchant' ? 'pending' : editingProduct.status) as any
+    };
     if (alignedProduct.options && alignedProduct.options.length > 0) {
       alignedProduct.options = alignedProduct.options.map(opt => ({
         ...opt,
@@ -1247,8 +1250,19 @@ export default function HomeTab({
                     value={editingProduct.status}
                     onChange={(e) => setEditingProduct({ ...editingProduct, status: e.target.value as any })}
                   >
-                    <option value="approved">เปิดขายปกติ (Active)</option>
-                    <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                    {currentUser?.role === 'Merchant' ? (
+                      <>
+                        <option value="pending">ส่งเพื่อรอการอนุมัติ (Submit for Approval)</option>
+                        <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="approved">เปิดขายปกติ (Active / Approved)</option>
+                        <option value="pending">รอการอนุมัติ (Pending)</option>
+                        <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                        <option value="rejected">ปฏิเสธการระงับ (Rejected)</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
