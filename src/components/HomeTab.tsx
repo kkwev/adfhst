@@ -72,6 +72,60 @@ export default function HomeTab({
   const [editingCategoryLabel, setEditingCategoryLabel] = useState('');
   const [editingCategoryIcon, setEditingCategoryIcon] = useState('');
 
+  // Product Detail Modal state
+  const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
+  const [modalSelections, setModalSelections] = useState<{ [category: string]: string }>({});
+  const [modalQty, setModalQty] = useState<number>(1);
+
+  const openProductDetails = (product: Product) => {
+    setSelectedProductDetails(product);
+    // Grab option defaults
+    const currentSel = cardSelections[product.id] || {};
+    const defaultSel: { [category: string]: string } = { ...currentSel };
+    
+    product.options.forEach(opt => {
+      if (!defaultSel[opt.category] && opt.list.length > 0) {
+        // Find first in stock or just first option
+        const firstAvail = opt.list.find(o => o.stock > 0) || opt.list[0];
+        if (firstAvail) {
+          defaultSel[opt.category] = firstAvail.name;
+        }
+      }
+    });
+
+    setModalSelections(defaultSel);
+    setModalQty(cardQuantities[product.id] || 1);
+  };
+
+  const handleModalOptionSelect = (category: string, optionName: string) => {
+    setModalSelections(prev => ({
+      ...prev,
+      [category]: optionName
+    }));
+  };
+
+  const handleModalQtyChange = (delta: number) => {
+    if (!selectedProductDetails) return;
+    const calcStock = calculateStockForSelection(selectedProductDetails, modalSelections);
+    setModalQty(prev => {
+      const next = prev + delta;
+      if (next < 1) return 1;
+      if (next > calcStock) return calcStock;
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (selectedProductDetails) {
+      const calcStock = calculateStockForSelection(selectedProductDetails, modalSelections);
+      if (modalQty > calcStock && calcStock > 0) {
+        setModalQty(calcStock);
+      } else if (calcStock === 0) {
+        setModalQty(1);
+      }
+    }
+  }, [modalSelections, selectedProductDetails]);
+
   // Dynamic injection so it always displays regardless of local DB state
   const loanBannerUrl = "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&q=80&w=1200&h=400";
   const activeBanners = [...settings.banners];
@@ -782,7 +836,11 @@ export default function HomeTab({
                     )}
 
                     {/* Card Image Area */}
-                    <div className="relative aspect-square w-full overflow-hidden bg-gray-50 flex items-center justify-center">
+                    <div 
+                      onClick={() => openProductDetails(p)}
+                      className="relative aspect-square w-full overflow-hidden bg-gray-50 flex items-center justify-center cursor-pointer"
+                      title="คลิกเพื่อดูรายละเอียดสินค้าเพิ่มเติม"
+                    >
                       <img 
                         src={p.image} 
                         alt={p.name} 
@@ -801,18 +859,25 @@ export default function HomeTab({
                     {/* Card Body Information */}
                     <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
                       <div className="space-y-1">
-                        {/* Shop Identity bar */}
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter block truncate">
-                          🏪 {p.merchantName}
-                        </span>
-                        {/* Product Headline Title */}
-                        <h3 className="text-xs sm:text-sm font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-red-600 transition-colors">
-                          {p.name}
-                        </h3>
-                        {/* Description Details (expanded slightly on desk) */}
-                        <p className="text-[10px] text-gray-500 line-clamp-2 sm:line-clamp-3 leading-snug font-medium">
-                          {p.description}
-                        </p>
+                        {/* Clickable Header & Info block to open details modal */}
+                        <div 
+                          onClick={() => openProductDetails(p)}
+                          className="space-y-1 cursor-pointer"
+                          title="คลิกเพื่อดูรายละเอียดสินค้าเพิ่มเติม"
+                        >
+                          {/* Shop Identity bar */}
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter block truncate">
+                            🏪 {p.merchantName}
+                          </span>
+                          {/* Product Headline Title */}
+                          <h3 className="text-xs sm:text-sm font-bold text-gray-800 line-clamp-2 leading-snug group-hover:text-red-600 transition-colors">
+                            {p.name}
+                          </h3>
+                          {/* Description Details (expanded slightly on desk) */}
+                          <p className="text-[10px] text-gray-500 line-clamp-2 sm:line-clamp-3 leading-snug font-medium">
+                            {p.description}
+                          </p>
+                        </div>
                         
                         {/* Sales capacity logs with monospace layout */}
                         <div className="flex items-center gap-1.5 py-1">
@@ -1713,6 +1778,174 @@ export default function HomeTab({
                 เสร็จสิ้น
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. DETAILED PRODUCT VIEW MODAL (Sephora Luxury Style) */}
+      {selectedProductDetails && (
+        <div id="product-detail-popup-modal" className="fixed inset-0 z-50 bg-black/60 overflow-y-auto backdrop-blur-sm py-10 px-4 flex justify-center items-center">
+          <div className="w-full max-w-2xl bg-white rounded-3xl overflow-hidden shadow-2xl border border-gray-150 p-6 sm:p-8 animate-slide-up relative max-h-[90vh] flex flex-col">
+            
+            {/* Close button */}
+            <button 
+              onClick={() => setSelectedProductDetails(null)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 z-10 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Left side: Product Image */}
+                <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
+                  <img 
+                    src={selectedProductDetails.image} 
+                    alt={selectedProductDetails.name} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  {(selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white backdrop-blur-[1px]">
+                      <span className="text-sm font-bold border-2 border-white px-4 py-1.5 font-display tracking-widest uppercase">
+                        OUT OF STOCK
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right side: Information and configuration */}
+                <div className="flex flex-col justify-between space-y-4">
+                  <div className="space-y-3">
+                    {/* Merchant / Shop */}
+                    <span className="text-xs font-black text-[#FF1E27] bg-[#FF1E27]/5 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                      🏪 {selectedProductDetails.merchantName}
+                    </span>
+
+                    {/* Title */}
+                    <h2 className="text-base sm:text-lg font-black text-gray-900 leading-snug">
+                      {selectedProductDetails.name}
+                    </h2>
+
+                    {/* Price */}
+                    <div className="text-xl sm:text-2xl font-black font-mono text-gray-950">
+                      {selectedProductDetails.price.toLocaleString()} <span className="text-xs font-extrabold text-gray-400">THB</span>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-3 text-xs font-bold text-gray-500">
+                      <span className="bg-teal-50 text-teal-700 px-2 py-1 rounded-md font-mono">
+                        ขายแล้ว {selectedProductDetails.salesVolume} ชิ้น
+                      </span>
+                      <span className="bg-gray-50 text-gray-600 px-2 py-1 rounded-md font-mono">
+                        คงเหลือ {selectedProductDetails.totalStock} ชิ้น
+                      </span>
+                    </div>
+
+                    <hr className="border-gray-100" />
+
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block font-mono">รายละเอียดสินค้า (Description)</span>
+                      <p className="text-xs text-gray-600 leading-relaxed font-medium">
+                        {selectedProductDetails.description}
+                      </p>
+                    </div>
+
+                    {/* Options Selectors inside Modal */}
+                    {selectedProductDetails.options.length > 0 && (
+                      <div className="space-y-3 pt-2">
+                        {selectedProductDetails.options.map((opt) => (
+                          <div key={opt.category} className="space-y-1.5">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block font-mono">{opt.category}:</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {opt.list.map((item) => {
+                                const isSelected = modalSelections[opt.category] === item.name;
+                                const isOpOut = item.stock <= 0;
+                                return (
+                                  <button
+                                    key={item.name}
+                                    type="button"
+                                    disabled={isOpOut}
+                                    onClick={() => handleModalOptionSelect(opt.category, item.name)}
+                                    className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all border ${
+                                      isOpOut 
+                                        ? 'border-gray-100 text-gray-300 line-through bg-gray-50' 
+                                        : isSelected 
+                                          ? 'text-white border-transparent shadow shadow-red-100' 
+                                          : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
+                                    }`}
+                                    style={isSelected && !isOpOut ? {
+                                      background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
+                                    } : undefined}
+                                  >
+                                    {item.name} {item.stock < 5 && item.stock > 0 ? `(${item.stock})` : ''}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pricing, Quantity & Add to Cart Action */}
+                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 space-y-3 pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-black text-gray-600">จำนวนที่สั่งซื้อ</span>
+                      
+                      {/* Quantity Selector */}
+                      <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleModalQtyChange(-1)}
+                          className="p-2 hover:bg-gray-50 text-gray-500 transition-colors"
+                          disabled={selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0}
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-sm font-black px-3 min-w-[24px] text-center text-gray-800 font-mono">
+                          {modalQty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleModalQtyChange(1)}
+                          className="p-2 hover:bg-gray-50 text-gray-500 transition-colors"
+                          disabled={selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0}
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Add to Cart checkout button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddToCart(selectedProductDetails, modalQty, modalSelections);
+                        alert(`เพิ่ม "${selectedProductDetails.name}" (${modalQty} ชิ้น) ลงตะกร้าเรียบร้อยแล้วค่ะ!`);
+                        setSelectedProductDetails(null);
+                      }}
+                      disabled={selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0}
+                      className={`w-full py-3.5 rounded-2xl text-xs font-black shadow-lg flex items-center justify-center gap-2 transition-transform active:scale-95 cursor-pointer select-none ${
+                        (selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) ? 'bg-gray-200 text-gray-400 shadow-none pointer-events-none' : 'text-white'
+                      }`}
+                      style={(selectedProductDetails.totalStock > 0 && calculateStockForSelection(selectedProductDetails, modalSelections) > 0) ? {
+                        background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
+                      } : undefined}
+                    >
+                      <ShoppingCart size={15} />
+                      {(selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) ? 'สินค้าหมดเกลี้ยง' : 'ใส่ตะกร้าช้อปเลย'}
+                    </button>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
           </div>
         </div>
       )}
