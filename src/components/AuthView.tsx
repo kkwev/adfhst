@@ -25,6 +25,7 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [registerRole, setRegisterRole] = useState<'Customer' | 'Merchant'>('Customer');
   
   // Local flags
   const [errorText, setErrorText] = useState('');
@@ -116,20 +117,32 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
       return;
     }
 
-    // Assign M + 5 digit index based on fresh list
-    const clientCount = latestUsers.filter(u => u.role === 'Customer').length;
-    const paddingNum = String(clientCount + 1).padStart(5, '0');
-    const newId = `M${paddingNum}`;
+    // Assign custom ID with random increment starting from M23133 or S42135
+    let newId = '';
+    if (registerRole === 'Customer') {
+      const cUsers = latestUsers.filter(u => u.role === 'Customer' && u.id.startsWith('M'));
+      const nums = cUsers.map(u => parseInt(u.id.substring(1), 10)).filter(n => !isNaN(n));
+      const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+      const nextNum = Math.max(maxNum, 23132) + Math.floor(Math.random() * 30) + 1;
+      newId = `M${nextNum}`;
+    } else {
+      const mUsers = latestUsers.filter(u => u.role === 'Merchant' && u.id.startsWith('S'));
+      const nums = mUsers.map(u => parseInt(u.id.substring(1), 10)).filter(n => !isNaN(n));
+      const maxNum = nums.length > 0 ? Math.max(...nums) : 0;
+      const nextNum = Math.max(maxNum, 42134) + Math.floor(Math.random() * 30) + 1;
+      newId = `S${nextNum}`;
+    }
 
     const newUser: UserType = {
       id: newId,
       name: name.trim(),
       phone,
       password,
-      role: 'Customer', // Always default to Client/Customer
+      role: registerRole,
       status: 'active',
       wallet: 0, // initially 0
       avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
+      isOrderEnabled: registerRole === 'Merchant' ? false : true,
     };
 
     setSuccessText('สมัครสมาชิกสำเร็จเรียบร้อยแล้ว!');
@@ -260,6 +273,48 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
 
         {authMode === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
+            {/* Account Type Selection */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-600">เลือกประเภทบัญชีผู้ใช้งาน</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  id="register-role-customer"
+                  onClick={() => setRegisterRole('Customer')}
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    registerRole === 'Customer'
+                      ? 'border-transparent text-white shadow-sm font-black'
+                      : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  style={registerRole === 'Customer' ? {
+                    background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
+                  } : undefined}
+                >
+                  <span>🛍️</span> บัญชีลูกค้า (Customer)
+                </button>
+                <button
+                  type="button"
+                  id="register-role-merchant"
+                  onClick={() => setRegisterRole('Merchant')}
+                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    registerRole === 'Merchant'
+                      ? 'border-transparent text-white shadow-sm font-black'
+                      : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  style={registerRole === 'Merchant' ? {
+                    background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
+                  } : undefined}
+                >
+                  <span>🏪</span> บัญชีร้านค้า (Merchant)
+                </button>
+              </div>
+              {registerRole === 'Merchant' && (
+                <p className="text-[10px] text-red-500 font-bold leading-tight mt-1">
+                  ⚠️ บัญชีร้านค้าจะเริ่มใช้งานโดยปิดยืนยันตัวตน (ปิดรับออเดอร์ชั่วคราว) จนกว่าผู้ดูแลระบบจะเปิดอนุมัติยืนยันตัวตนให้ค่ะ
+                </p>
+              )}
+            </div>
+
             {/* Fullname */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-gray-600">ชื่อ - นามสกุลจริง</label>
