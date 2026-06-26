@@ -204,66 +204,7 @@ export async function initializeFirestoreDB() {
       
       console.log("Firestore database seeded successfully!");
     } else {
-      console.log("Firestore database exists. Synchronizing offline-first changes...");
-      
-      const localUsers = getStoredData<User[]>("paopao_users", []);
-      const localProducts = getStoredData<Product[]>("paopao_products", []);
-      const localNotifications = getStoredData<SystemNotification[]>("paopao_notifications", []);
-      const localOrders = getStoredData<Order[]>("paopao_orders", []);
-      const localChats = getStoredData<ChatMessage[]>("paopao_chats", []);
-      const localWithdrawals = getStoredData<WithdrawalRequest[]>("paopao_withdrawals", []);
-      const localDeposits = getStoredData<DepositRequest[]>("paopao_deposits", []);
-
-      // 1. Users (merge registered/modified profiles)
-      for (const u of localUsers) {
-        if (u && u.id) {
-          await setDoc(doc(db, "users", u.id), cleanUndefined(u), { merge: true });
-        }
-      }
-      
-      // 2. Products
-      for (const p of localProducts) {
-        if (p && p.id) {
-          await setDoc(doc(db, "products", p.id), cleanUndefined(p), { merge: true });
-        }
-      }
-      
-      // 3. Notifications
-      for (const n of localNotifications) {
-        if (n && n.id) {
-          await setDoc(doc(db, "notifications", n.id), cleanUndefined(n), { merge: true });
-        }
-      }
-      
-      // 4. Orders
-      for (const o of localOrders) {
-        if (o && o.id) {
-          await setDoc(doc(db, "orders", o.id), cleanUndefined(o), { merge: true });
-        }
-      }
-      
-      // 5. Chats
-      for (const c of localChats) {
-        if (c && c.id) {
-          await setDoc(doc(db, "chats", c.id), cleanUndefined(c), { merge: true });
-        }
-      }
-      
-      // 6. Withdrawals
-      for (const w of localWithdrawals) {
-        if (w && w.id) {
-          await setDoc(doc(db, "withdrawals", w.id), cleanUndefined(w), { merge: true });
-        }
-      }
-      
-      // 7. Deposits
-      for (const d of localDeposits) {
-        if (d && d.id) {
-          await setDoc(doc(db, "deposits", d.id), cleanUndefined(d), { merge: true });
-        }
-      }
-      
-      console.log("Offline changes synchronized successfully!");
+      console.log("Firestore database exists. Ready to listen to real-time updates.");
     }
   } catch (error) {
     if (isQuotaError(error)) {
