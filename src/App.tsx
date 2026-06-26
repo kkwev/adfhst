@@ -1287,6 +1287,9 @@ export default function App() {
         onNavigate={(tab) => setActiveTab(tab)} 
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         notificationCount={currentUser ? notifications.filter(notif => {
+          if (notif.id === 'N00002' || notif.title === 'ประกาศปิดปรับปรุงระบบเซิร์ฟเวอร์ย่อยชั่วคราว') {
+            return false;
+          }
           const isRelevant = notif.userId === 'all' || notif.userId === currentUser.id;
           if (!isRelevant) return false;
           const readBy = notif.readBy || [];
