@@ -710,6 +710,15 @@ export default function AdminPanel({
         createdAt: new Date().toISOString()
       };
       onUpdateNotifications([...notifications, respNotif]);
+
+      logOnlineAction(
+        "products",
+        approve ? "อนุมัติวางจำหน่ายสินค้า" : "ปฏิเสธ/ระงับสินค้า",
+        approve 
+          ? `อนุมัติสินค้า "${prod.name}" (ID: ${prod.id}) ของร้าน ${prod.merchantName} ขึ้นสู่หน้าแรกสำเร็จ`
+          : `ปฏิเสธสินค้า "${prod.name}" (ID: ${prod.id}) ของร้าน ${prod.merchantName} เนื่องจาก: ${comment || 'ข้อมูลไม่ถูกต้อง'}`,
+        currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
+      );
     }
 
     alert(`ดำเนินการปรับสถานะสินค้าเป็น: [${approve ? 'อนุมัติวางขาย (Approved)' : 'ปฏิเสธระงับ (Rejected)'}] สำเร็จลุล่วงค่ะ!`);
