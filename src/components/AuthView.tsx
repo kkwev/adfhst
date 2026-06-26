@@ -273,48 +273,6 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
 
         {authMode === 'register' && (
           <form onSubmit={handleRegister} className="space-y-4">
-            {/* Account Type Selection */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-600">เลือกประเภทบัญชีผู้ใช้งาน</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  id="register-role-customer"
-                  onClick={() => setRegisterRole('Customer')}
-                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    registerRole === 'Customer'
-                      ? 'border-transparent text-white shadow-sm font-black'
-                      : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  style={registerRole === 'Customer' ? {
-                    background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
-                  } : undefined}
-                >
-                  <span>🛍️</span> บัญชีลูกค้า (Customer)
-                </button>
-                <button
-                  type="button"
-                  id="register-role-merchant"
-                  onClick={() => setRegisterRole('Merchant')}
-                  className={`py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    registerRole === 'Merchant'
-                      ? 'border-transparent text-white shadow-sm font-black'
-                      : 'border-gray-200 text-gray-600 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  style={registerRole === 'Merchant' ? {
-                    background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`
-                  } : undefined}
-                >
-                  <span>🏪</span> บัญชีร้านค้า (Merchant)
-                </button>
-              </div>
-              {registerRole === 'Merchant' && (
-                <p className="text-[10px] text-red-500 font-bold leading-tight mt-1">
-                  ⚠️ บัญชีร้านค้าจะเริ่มใช้งานโดยปิดยืนยันตัวตน (ปิดรับออเดอร์ชั่วคราว) จนกว่าผู้ดูแลระบบจะเปิดอนุมัติยืนยันตัวตนให้ค่ะ
-                </p>
-              )}
-            </div>
-
             {/* Fullname */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-gray-600">ชื่อ - นามสกุลจริง</label>
