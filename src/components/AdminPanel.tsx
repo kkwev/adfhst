@@ -12,6 +12,7 @@ import {
   User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, DepositRequest, OnlineActionLog 
 } from '../types';
 import { logOnlineAction, getOnlineActionLogs } from '../db/local_db';
+import { compressImage } from '../db/image_compressor';
 
 interface AdminPanelProps {
   currentUser: User | null;
@@ -2289,15 +2290,16 @@ export default function AdminPanel({
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                if (file.size > 5 * 1024 * 1024) {
-                                  alert("รูปภาพแบนเนอร์สินค้ามีขนาดไฟล์ใหญ่เกิน 5MB ค่ะ!");
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setEditingCatalogProduct({ ...editingCatalogProduct, image: reader.result as string });
-                                };
-                                reader.readAsDataURL(file);
+                                compressImage(file, 600, 0.6).then((base64String) => {
+                                  if (!base64String) {
+                                    alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
+                                    return;
+                                  }
+                                  setEditingCatalogProduct({ ...editingCatalogProduct, image: base64String });
+                                }).catch((err) => {
+                                  console.error("Compression error:", err);
+                                  alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
+                                });
                               }
                             }}
                             className="text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-gray-800 file:text-white hover:file:opacity-90 file:cursor-pointer"
