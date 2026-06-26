@@ -124,9 +124,12 @@ export default function ProfileTab({
   const handleSaveEditProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    onEditProduct(editingProduct);
+    const productPayload = { ...editingProduct };
     setShowEditModal(false);
     setEditingProduct(null);
+    setTimeout(() => {
+      onEditProduct(productPayload);
+    }, 50);
   };
 
   const merchantProducts = React.useMemo(() => {
@@ -333,10 +336,17 @@ export default function ProfileTab({
     const updatedList = [freshDeposit, ...deposits];
     onUpdateDeposits(updatedList);
 
-    alert(`ส่งรหัสแจ้งฝากเงิน [${nextId}] ยอดเงิน ${depositAmountInput.toLocaleString()} THB สำเร็จเรียบร้อยแล้วค่ะ! รอแอดมินตรวจบัญชีโอนสลิปและกดยืนยันเครดิตจ้า 🥳`);
+    const nextIdVal = nextId;
+    const amountVal = depositAmountInput;
+
+    // Close the popup and reset input fields instantly before the alert runs
+    setShowDepositPopup(false);
     setDepositAmountInput(0);
     setDepositSlipBase64('');
-    setShowDepositPopup(false);
+
+    setTimeout(() => {
+      alert(`ส่งรหัสแจ้งฝากเงิน [${nextIdVal}] ยอดเงิน ${amountVal.toLocaleString()} THB สำเร็จเรียบร้อยแล้วค่ะ! รอแอดมินตรวจบัญชีโอนสลิปและกดยืนยันเครดิตจ้า 🥳`);
+    }, 100);
   };
 
   const handleApplyWithdraw = (e: React.FormEvent) => {
