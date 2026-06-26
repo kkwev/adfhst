@@ -457,7 +457,7 @@ export default function HomeTab({
       ? (newProdMerchantName.trim() || "แอดมินกลาง") 
       : (currentUser?.name || "Merchant Shop");
 
-    onAddProduct({
+    const productPayload = {
       merchantId: mId,
       merchantName: mName,
       merchantPhone: currentUser?.phone || '0000000000',
@@ -465,13 +465,13 @@ export default function HomeTab({
       description: newProdDesc,
       image: imageUrl,
       price: newProdPrice,
-      status: currentUser?.role === 'Merchant' ? 'pending' : 'approved', // Merchant requires admin check, admin immediate approve!
+      status: (currentUser?.role === 'Merchant' ? 'pending' : 'approved') as 'pending' | 'approved', // Merchant requires admin check, admin immediate approve!
       options: newOptions,
       totalStock: calculatedTotalStock,
       category: newProdCategory
-    });
+    };
 
-    // Reset Form
+    // Reset Form and close modal instantly so it disappears immediately!
     setNewProdName('');
     setNewProdDesc('');
     setNewProdPrice(0);
@@ -483,6 +483,11 @@ export default function HomeTab({
       { category: "สี (Color)", list: [{ name: "แดงนีออน (Neon Red)", stock: 10 }, { name: "ขาวคลีน (Pure White)", stock: 10 }] }
     ]);
     setShowAddModal(false);
+
+    // Call onAddProduct after a short delay so the modal animation completes/closes first!
+    setTimeout(() => {
+      onAddProduct(productPayload);
+    }, 50);
   };
 
   const startEditing = (p: Product) => {
@@ -506,9 +511,14 @@ export default function HomeTab({
       }));
     }
 
-    onEditProduct(alignedProduct);
+    // Close the edit modal instantly
     setShowEditModal(false);
     setEditingProduct(null);
+
+    // Call onEditProduct after a short delay
+    setTimeout(() => {
+      onEditProduct(alignedProduct);
+    }, 50);
   };
 
   return (
@@ -1456,8 +1466,10 @@ export default function HomeTab({
                   <button
                     type="button"
                     onClick={() => {
-                      alert('ระบบได้รับข้อมูลคำขอสมัครวงเงินสินเชื่อของท่านเรียบร้อยแล้วค่ะ! เจ้าหน้าที่ฝ่ายประเมินความมั่นคงและพิจารณาประวัติร้านค้าจะติดต่อกลับมาทางเบอร์โทรศัพท์ของท่านโดยเร็วที่สุดค่ะ 🙏✨');
                       setShowLoanModal(false);
+                      setTimeout(() => {
+                        alert('ระบบได้รับข้อมูลคำขอสมัครวงเงินสินเชื่อของท่านเรียบร้อยแล้วค่ะ! เจ้าหน้าที่ฝ่ายประเมินความมั่นคงและพิจารณาประวัติร้านค้าจะติดต่อกลับมาทางเบอร์โทรศัพท์ของท่านโดยเร็วที่สุดค่ะ 🙏✨');
+                      }, 100);
                     }}
                     className="flex-1 py-3.5 rounded-2xl text-xs font-black text-white shadow-md hover:opacity-95 transition-all text-center cursor-pointer"
                     style={{ background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)` }}
