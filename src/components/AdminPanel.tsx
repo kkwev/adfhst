@@ -590,6 +590,21 @@ export default function AdminPanel({
     alert(`แบนบัญชี ${current.name} ตลอดชีพ (Banned) เรียบร้อย สมาชิกรายนี้จะไม่สามารถลงชื่อล็อกอินเข้าระบบ SEPHORA THAILAND ได้อีกต่อไป`);
   };
 
+  const handleDeleteUser = (userId: string) => {
+    const usr = users.find(u => u.id === userId);
+    if (!usr) return;
+    if (usr.role === 'SuperAdmin') {
+      alert('ไม่สามารถลบผู้ดูแลระบบสูงสุด (SuperAdmin) ได้ค่ะ!');
+      return;
+    }
+    const confirmDelete = window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลบัญชีผู้ใช้ "${usr.name || usr.phone}" ออกจากระบบถาวร? การกระทำนี้ไม่สามารถย้อนคืนได้ค่ะ ⚠️`);
+    if (confirmDelete) {
+      const updated = users.filter(u => u.id !== userId);
+      onUpdateUsers(updated);
+      alert(`ลบบัญชีผู้ใช้สำเร็จเรียบร้อยแล้วค่ะ!`);
+    }
+  };
+
   const startEditingUser = (u: User) => {
     setEditingUserId(u.id);
     setEditedUserName(u.name);
@@ -1997,6 +2012,16 @@ export default function AdminPanel({
                                 className="p-1 px-2 text-[9px] font-extrabold text-rose-600 hover:bg-rose-50 rounded"
                               >
                                 แบนบัญชี
+                              </button>
+                            )}
+
+                            {usr.role !== 'SuperAdmin' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(usr.id)}
+                                className="p-1 px-2 text-[9px] font-extrabold text-red-700 bg-red-50 hover:bg-red-100 rounded"
+                              >
+                                ลบบัญชีผู้ใช้
                               </button>
                             )}
                           </div>
