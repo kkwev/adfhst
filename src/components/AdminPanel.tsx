@@ -91,6 +91,8 @@ export default function AdminPanel({
   const [withdrawCommentManual, setWithdrawCommentManual] = useState('');
   const [withdrawActionComment, setWithdrawActionComment] = useState('');
   const [expandedSlipUrl, setExpandedSlipUrl] = useState<string | null>(null);
+  const [depositApprovalReq, setDepositApprovalReq] = useState<DepositRequest | null>(null);
+  const [depositBonusAmount, setDepositBonusAmount] = useState<number>(0);
   const [editingWithDrawalId, setEditingWithDrawalId] = useState<string | null>(null);
   const [editingWithDrawalAmount, setEditingWithDrawalAmount] = useState<number>(0);
 
@@ -442,7 +444,7 @@ export default function AdminPanel({
     setWithdrawActionComment('');
   };
 
-  const handleProcessDepositRequest = (reqId: string, approve: boolean) => {
+  const handleProcessDepositRequest = (reqId: string, approve: boolean, bonusAmt: number = 0) => {
     const matchedReq = deposits.find(d => d.id === reqId);
     if (!matchedReq) return;
 
@@ -470,7 +472,7 @@ export default function AdminPanel({
     if (approve) {
       const updatedUsers = users.map(u => {
         if (u.id === matchedReq.userId) {
-          return { ...u, wallet: u.wallet + matchedReq.amount };
+          return { ...u, wallet: u.wallet + matchedReq.amount + bonusAmt };
         }
         return u;
       });
@@ -483,7 +485,7 @@ export default function AdminPanel({
       userId: matchedReq.userId,
       title: approve ? "การแจ้งฝากเงินได้รับการอนุมัติเติมเครดิตแล้ว" : "การแจ้งฝากเงินของคุณถูกปฏิเสธ",
       message: approve 
-        ? `ยอดเงินฝากจำนวน ${matchedReq.amount.toLocaleString()} บาท ได้รับการอนุมัติเรียบร้อยแล้วและเพิ่มยอดเงินเข้าสู่ Wallet ของคุณแล้วค่ะ ขอให้สนุกกับการช้อปปิ้งนะคะ 💖`
+        ? `ยอดเงินฝากจำนวน ${matchedReq.amount.toLocaleString()} บาท ได้รับการอนุมัติเรียบร้อยแล้วและเพิ่มยอดเงินเข้าสู่ Wallet ของคุณแล้วค่ะ${bonusAmt > 0 ? ` พร้อมได้รับโบนัสเงินพิเศษเพิ่มเติมอีกจำนวน ${bonusAmt.toLocaleString()} บาท ด้วยค่ะ!` : ''} ขอให้สนุกกับการช้อปปิ้งนะคะ 💖`
         : `ยอดแจ้งฝากเงินจำนวน ${matchedReq.amount.toLocaleString()} THB ถูกปฏิเสธเนื่องจากตรวจสอบพบความขัดแย้งของข้อมูลหรือรูปสลิปไม่สมบูรณ์ โปรดทำรายการอีกครั้งค่ะ`,
       isSystemAnnouncement: false,
       createdAt: new Date().toISOString()
@@ -493,11 +495,11 @@ export default function AdminPanel({
     logOnlineAction(
       "financial",
       approve ? "อนุมัติการฝากเงิน" : "ปฏิเสธการฝากเงิน",
-      `${approve ? 'อนุมัติเพิ่มเครดิต' : 'ปฏิเสธคำร้องฝาก'}จำนวน ${matchedReq.amount.toLocaleString()} บาท ของสมาชิก ${matchedReq.userName} (${matchedReq.userId})`,
+      `${approve ? `อนุมัติเพิ่มเครดิตจำนวน ${matchedReq.amount.toLocaleString()} บาท${bonusAmt > 0 ? ` (พร้อมโบนัส ${bonusAmt.toLocaleString()} บาท)` : ''}` : 'ปฏิเสธคำร้องฝาก'} ของสมาชิก ${matchedReq.userName} (${matchedReq.userId})`,
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
-    alert(`ดำเนินการ ${approve ? 'อนุมัติเพิ่มเครดิต Wallet' : 'ปฏิเสธคำขอฝาก'} ของรหัสบิลฝาก ${reqId} ยอด ${matchedReq.amount.toLocaleString()} THB สำเร็จเรียบร้อยค่ะ!`);
+    alert(`ดำเนินการ ${approve ? `อนุมัติเพิ่มเครดิต Wallet ยอด ${matchedReq.amount.toLocaleString()} THB${bonusAmt > 0 ? ` พร้อมโบนัสพิเศษ ${bonusAmt.toLocaleString()} THB` : ''}` : `ปฏิเสธคำขอฝาก ยอด ${matchedReq.amount.toLocaleString()} THB`} สำเร็จเรียบร้อยค่ะ!`);
   };
 
   // --- Member Admin Creation & Control actions ---
@@ -640,6 +642,7 @@ export default function AdminPanel({
 
     const updated = users.map(u => {
       if (u.id === editingUserId) {
+        const isChangingToMerchant = u.role !== 'Merchant' && editedUserRole === 'Merchant';
         return {
           ...u,
           name: editedUserName,
@@ -649,7 +652,8 @@ export default function AdminPanel({
           role: editedUserRole as any,
           bankName: editedUserBank || undefined,
           bankAccount: editedUserBankAcc || undefined,
-          bankHolderName: editedUserHolder || undefined
+          bankHolderName: editedUserHolder || undefined,
+          isOrderEnabled: editedUserRole === 'Merchant' ? (isChangingToMerchant ? false : u.isOrderEnabled) : true
         };
       }
       return u;
@@ -1644,7 +1648,7 @@ export default function AdminPanel({
                               <div className="flex gap-1.5 justify-center">
                                 <button
                                   type="button"
-                                  onClick={() => handleProcessDepositRequest(dReq.id, true)}
+                                  onClick={() => { setDepositApprovalReq(dReq); setDepositBonusAmount(0); }}
                                   className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[10px] px-3 py-1.5 rounded-xl shadow-sm cursor-pointer transition-all active:scale-95 leading-none"
                                 >
                                   ✓ อนุมัติฝากเงิน
@@ -2977,6 +2981,120 @@ export default function AdminPanel({
             <p className="text-center text-[10.5px] font-bold text-gray-400 mt-2.5">
               * แอดมินกรุณาตรวจสอบชื่อผู้โอน ยอดเงินโอนจริง และวันเวลาให้สอดคล้องกับสลิปก่อนกดยืนยัน
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP DEPOSIT APPROVAL WITH BONUS */}
+      {depositApprovalReq && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setDepositApprovalReq(null)}
+        >
+          <div 
+            className="relative bg-white rounded-3xl overflow-hidden max-w-md w-full p-6 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h4 className="text-sm font-black text-gray-900 flex items-center gap-1.5">
+                <span>💰</span> อนุมัติการฝากเงินเข้าระบบ
+              </h4>
+              <button 
+                type="button"
+                onClick={() => setDepositApprovalReq(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Request Info */}
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">ผู้ทำรายการ:</span>
+                  <span className="text-gray-900 font-black">{depositApprovalReq.userName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">เบอร์โทรศัพท์:</span>
+                  <span className="text-gray-950 font-mono font-bold">{depositApprovalReq.userPhone}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">จำนวนเงินที่โอน:</span>
+                  <span className="text-emerald-600 text-sm font-black">{depositApprovalReq.amount.toLocaleString()} THB</span>
+                </div>
+                {depositApprovalReq.slipImage && (
+                  <div className="pt-2 border-t flex flex-col gap-1.5">
+                    <span className="text-[10px] text-gray-400 font-bold">ภาพหลักฐานสลิป:</span>
+                    <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden border flex items-center justify-center">
+                      <img 
+                        src={depositApprovalReq.slipImage} 
+                        alt="Slip thumbnail" 
+                        className="max-h-full max-w-full object-contain cursor-zoom-in"
+                        onClick={() => setExpandedSlipUrl(depositApprovalReq.slipImage)}
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Bonus Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-gray-700 flex justify-between items-center">
+                  <span>✨ ระบุจำนวนเงินโบนัสเพิ่มเติม (บาท)</span>
+                  <span className="text-[10px] text-gray-400 font-bold">* ใส่เป็น 0 หากไม่มีโบนัส</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    value={depositBonusAmount === 0 ? '' : depositBonusAmount}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setDepositBonusAmount(isNaN(val) || val < 0 ? 0 : val);
+                    }}
+                    placeholder="ป้อนจำนวนเงินโบนัสพิเศษ (เช่น 50, 100)..."
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all font-mono"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">THB</span>
+                </div>
+              </div>
+
+              {/* Calculation Preview */}
+              <div className="bg-teal-50 border border-teal-100 rounded-2xl p-3.5 space-y-1 text-center">
+                <span className="text-[10px] text-teal-800 font-black block">รวมยอดเงินที่จะเข้า Wallet ของผู้ใช้</span>
+                <span className="text-teal-600 text-lg font-black font-mono">
+                  {(depositApprovalReq.amount + depositBonusAmount).toLocaleString()} THB
+                </span>
+                {depositBonusAmount > 0 && (
+                  <span className="text-[9.5px] text-teal-700 font-bold block">
+                    (เงินฝาก {depositApprovalReq.amount.toLocaleString()} + โบนัสพิเศษ {depositBonusAmount.toLocaleString()} THB)
+                  </span>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDepositApprovalReq(null)}
+                  className="py-3 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs active:scale-95 transition-all cursor-pointer text-center"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleProcessDepositRequest(depositApprovalReq.id, true, depositBonusAmount);
+                    setDepositApprovalReq(null);
+                  }}
+                  className="py-3 px-4 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs active:scale-95 transition-all cursor-pointer text-center shadow-sm"
+                >
+                  ✓ ยืนยันอนุมัติฝากเงิน
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
