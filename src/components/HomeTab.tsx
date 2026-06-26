@@ -578,6 +578,14 @@ export default function HomeTab({
 
   return (
     <div className="pb-28">
+      {/* Sephora Announcement Banner */}
+      <div className="bg-neutral-950 text-white py-2.5 px-4 text-xs font-medium border-b border-neutral-800 flex items-center justify-center gap-2 select-none shadow-sm font-sans tracking-wide">
+        <Megaphone size={14} className="text-red-500 animate-bounce shrink-0" />
+        <span className="text-center text-[11px] sm:text-xs leading-normal">
+          ยินดีต้อนรับเข้าสู่แพลตฟอร์ม <strong className="text-red-500 font-black">SEPHORA THAILAND</strong> ร้านค้าออนไลน์ แหล่งรวมสินค้ามือ1และมือ2 มากมาย เวลาทำการของทางระบบ <span className="font-mono font-bold bg-neutral-800 px-1.5 py-0.5 rounded text-white text-[10.5px]">10.00 - 22.00 น.</span> อัพเดตระบบทุกวันอาทิตย์
+        </span>
+      </div>
+
       {/* 2. Banner/Promotion Slides */}
       {activeBanners.length > 0 && (
         <div className="relative w-full aspect-[3/1] md:aspect-[3.5/1] bg-gray-100 overflow-hidden shadow-inner border-b border-gray-100">
@@ -1431,7 +1439,7 @@ export default function HomeTab({
                 </div>
               </div>
               <span className="text-[9px] text-gray-450 text-gray-400 block mt-1">
-                * หมายเหตุ: หากตัวเลือกของสต็อกหมด ลูกค้าจะไม่สามารถทำรายการหยิบของในหน้านั้นได้
+                * หมายเหตุทางระบบ : หากตัวเลือกของสต็อกหมด ลูกค้าจะไม่สามารถทำรายการหยิบของในหน้านั้นได้
               </span>
 
               <button
