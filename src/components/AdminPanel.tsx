@@ -323,7 +323,7 @@ export default function AdminPanel({
       id: `N-DEP-${Date.now()}`,
       userId: memberDepositSelect.id,
       title: "เติมเงิน Wallet สำเร็จผ่านแอดมินหลังบ้าน",
-      message: `แอดมินได้เติมคริสพาวเวอร์ฝากเงินจำนวน ${depositAmount.toLocaleString()} THB เข้า Wallet ของคุณเรียบร้อยแล้วค่ะ! ขอให้สนุกกับการช้อปปิ้งออนไลน์ (หมายเหตุเพิ่มเติม: ${depositComment || 'ทำรายการเครดิตสำเร็จ'})`,
+      message: `แอดมินได้เติมคริสพาวเวอร์ฝากเงินจำนวน ${depositAmount.toLocaleString()} THB เข้า Wallet ของคุณเรียบร้อยแล้วค่ะ! ขอให้สนุกกับการช้อปปิ้งออนไลน์ (หมายเหตุทางระบบ : ${depositComment || 'ทำรายการเครดิตสำเร็จ'})`,
       isSystemAnnouncement: false,
       createdAt: new Date().toISOString()
     };
@@ -366,7 +366,7 @@ export default function AdminPanel({
       id: `N-WDR-${Date.now()}`,
       userId: withdrawMerchantSelect.id,
       title: "หักลดยอดเงิน Wallet สำเร็จจากแอดมินหลังบ้าน 📥",
-      message: `แอดมินได้ตกลงกดยอดถอนหักเงินออกจากประเป๋าตังค์คู่สัญญานัดหมายจำนวน ${withdrawAmountManual.toLocaleString()} THB สำเร็จกัปตัน (หมายเหตุแนบ: ${withdrawCommentManual || 'ไม่มีหมายเหตุระบุไว้'})`,
+      message: `แอดมินได้ตกลงกดยอดถอนหักเงินออกจากประเป๋าตังค์คู่สัญญานัดหมายจำนวน ${withdrawAmountManual.toLocaleString()} THB สำเร็จกัปตัน (หมายเหตุทางระบบ : ${withdrawCommentManual || 'ไม่มีหมายเหตุระบุไว้'})`,
       isSystemAnnouncement: false,
       createdAt: new Date().toISOString()
     };
@@ -375,7 +375,7 @@ export default function AdminPanel({
     logOnlineAction(
       "financial",
       "หักยอดเงินสำเร็จ (แอดมิน)",
-      `แอดมินดำเนินการหัก/ถอนเงินจำนวน ${withdrawAmountManual.toLocaleString()} บาท จากสมาชิก ${withdrawMerchantSelect.name} (${withdrawMerchantSelect.id}) หมายเหตุ: ${withdrawCommentManual || 'ทำรายการหักเงินโดยแอดมินหลังบ้าน'}`,
+      `แอดมินดำเนินการหัก/ถอนเงินจำนวน ${withdrawAmountManual.toLocaleString()} บาท จากสมาชิก ${withdrawMerchantSelect.name} (${withdrawMerchantSelect.id}) หมายเหตุทางระบบ : ${withdrawCommentManual || 'ทำรายการหักเงินโดยแอดมินหลังบ้าน'}`,
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
@@ -424,8 +424,8 @@ export default function AdminPanel({
       userId: matchedReq.merchantId,
       title: approve ? "คำขอถอนเงิน Wallet ได้รับอนุมัติโอนแล้ว" : "คำขอถอนเงิน Wallet ถูกปฏิเสธ",
       message: approve 
-        ? `ยินดีด้วยค่ะ คำร้องขอเบิกถอนเงินจำนวน ${matchedReq.amount.toLocaleString()} THB ได้รับการอนุมัติโอนและยืนยันการตัดเครดิตเรียบร้อยแล้วค่ะ (หมายเหตุแอดมิน: ${withdrawActionComment || 'โอนผ่านระบบธนาคารแล้ว'})`
-        : `รายการถอน จำนวน ${matchedReq.amount.toLocaleString()} บาท ของคุณถูกปฏิเสธ${withdrawActionComment ? ` (${withdrawActionComment})` : ''}`,
+        ? `ยินดีด้วยค่ะ คำร้องขอเบิกถอนเงินจำนวน ${matchedReq.amount.toLocaleString()} THB ได้รับการอนุมัติโอนและยืนยันการตัดเครดิตเรียบร้อยแล้วค่ะ (หมายเหตุทางระบบ : ${withdrawActionComment || 'โอนผ่านระบบธนาคารแล้ว'})`
+        : `รายการถอน จำนวน ${matchedReq.amount.toLocaleString()} บาท ของคุณถูกปฏิเสธ${withdrawActionComment ? ` (หมายเหตุทางระบบ : ${withdrawActionComment})` : ''}`,
       isSystemAnnouncement: false,
       createdAt: new Date().toISOString()
     };
@@ -434,7 +434,7 @@ export default function AdminPanel({
     logOnlineAction(
       "financial",
       approve ? "อนุมัติการถอนเงิน" : "ปฏิเสธการถอนเงิน",
-      `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การเบิกถอนเงินจำนวน ${matchedReq.amount.toLocaleString()} บาท ของร้าน ${matchedReq.merchantName} (${matchedReq.merchantId}) หมายเหตุ: ${withdrawActionComment || 'ไม่มี'}`,
+      `${approve ? 'อนุมัติ' : 'ปฏิเสธ'}การเบิกถอนเงินจำนวน ${matchedReq.amount.toLocaleString()} บาท ของร้าน ${matchedReq.merchantName} (${matchedReq.merchantId}) หมายเหตุทางระบบ : ${withdrawActionComment || 'ไม่มี'}`,
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
@@ -2599,7 +2599,7 @@ export default function AdminPanel({
                 </form>
               ) : (
                 <p className="text-[10.5px] font-semibold text-gray-400 bg-gray-50 p-3.5 border rounded-2xl text-center">
-                  * หมายเหตุ: กรุณาป้อนเบอร์โทรติดต่อผู้ใช้ด้านบนและ กดค้นหาความเจาะจง ก่อน จึงจะสามารถเข้าถึงแป้นพิมพ์ข้อความส่งแจ้งเตือนสุดโดดเด่นโดนใจได้ค่ะ
+                  * หมายเหตุทางระบบ : กรุณาป้อนเบอร์โทรติดต่อผู้ใช้ด้านบนและ กดค้นหาความเจาะจง ก่อน จึงจะสามารถเข้าถึงแป้นพิมพ์ข้อความส่งแจ้งเตือนสุดโดดเด่นโดนใจได้ค่ะ
                 </p>
               )}
             </div>
