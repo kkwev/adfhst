@@ -202,6 +202,67 @@ export default function App() {
     }
   }, [users, currentUser?.id]);
 
+  // Listen to cross-tab storage changes to synchronize state instantly across tabs/windows
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (!e.key) return;
+      if (e.key === "paopao_users") {
+        try {
+          const updatedUsers = JSON.parse(e.newValue || "[]") as User[];
+          setUsers(updatedUsers);
+          // If our current user's role/details changed in another tab, update here
+          setCurrentUser(prevUser => {
+            if (!prevUser) return null;
+            const matched = updatedUsers.find(u => u.id === prevUser.id);
+            if (matched && JSON.stringify(matched) !== JSON.stringify(prevUser)) {
+              localStorage.setItem("paopao_session_user", JSON.stringify(matched));
+              return matched;
+            }
+            return prevUser;
+          });
+        } catch (err) {
+          console.error("Error parsing cross-tab users sync:", err);
+        }
+      } else if (e.key === "paopao_session_user") {
+        try {
+          if (e.newValue) {
+            const updatedSessionUser = JSON.parse(e.newValue) as User;
+            setCurrentUser(updatedSessionUser);
+          } else {
+            setCurrentUser(null);
+          }
+        } catch (err) {
+          console.error("Error parsing cross-tab session user sync:", err);
+        }
+      } else if (e.key === "paopao_products") {
+        try {
+          setProducts(JSON.parse(e.newValue || "[]"));
+        } catch (err) {}
+      } else if (e.key === "paopao_deposits") {
+        try {
+          setDeposits(JSON.parse(e.newValue || "[]"));
+        } catch (err) {}
+      } else if (e.key === "paopao_orders") {
+        try {
+          setOrders(JSON.parse(e.newValue || "[]"));
+        } catch (err) {}
+      } else if (e.key === "paopao_notifications") {
+        try {
+          setNotifications(JSON.parse(e.newValue || "[]"));
+        } catch (err) {}
+      } else if (e.key === "paopao_withdrawals") {
+        try {
+          setWithdrawals(JSON.parse(e.newValue || "[]"));
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
   // Initialize DB once on load
   useEffect(() => {
     initializeDB();
