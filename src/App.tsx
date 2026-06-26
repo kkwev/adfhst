@@ -363,22 +363,6 @@ export default function App() {
                 list.push(docSnap.data() as Product);
               });
 
-              // One-time master delete of all existing Firestore products
-              if (localStorage.getItem("paopao_firestore_products_deleted_v3") !== "true") {
-                localStorage.setItem("paopao_firestore_products_deleted_v3", "true");
-                import("firebase/firestore").then(({ doc, deleteDoc }) => {
-                  for (const p of list) {
-                    deleteDoc(doc(db, "products", p.id)).catch(e => {
-                      console.error("Firestore cleanup error: ", e);
-                    });
-                  }
-                });
-                updateFirestoreCache("paopao_products", []);
-                localStorage.setItem("paopao_products", JSON.stringify([]));
-                setProducts([]);
-                return;
-              }
-
               list.sort((a, b) => a.id.localeCompare(b.id));
               updateFirestoreCache("paopao_products", list);
               localStorage.setItem("paopao_products", JSON.stringify(list));
