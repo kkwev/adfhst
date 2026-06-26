@@ -10,6 +10,7 @@ import {
   LayoutGrid, Edit3, Plus, Minus
 } from 'lucide-react';
 import { User, Order, ChatMessage, SystemSettings, WithdrawalRequest, DepositRequest, Product } from '../types';
+import { compressImage } from '../db/image_compressor';
 
 interface ProfileTabProps {
   currentUser: User | null;
@@ -110,21 +111,13 @@ export default function ProfileTab({
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("รูปภาพขนาดใหญ่เกินไปค่ะ! (สูงสุดไม่เกิน 5MB) 📷");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        if (editingProduct) {
+      compressImage(file, 600, 0.6).then((base64String) => {
+        if (base64String && editingProduct) {
           setEditingProduct({ ...editingProduct, image: base64String });
         }
-      };
-      reader.onerror = () => {
-        alert("ไม่สามารถอ่านไฟล์รูปภาพได้ค่ะ กรุณาลองเลือกรูปภาพอื่นนะคะ ❌");
-      };
-      reader.readAsDataURL(file);
+      }).catch(() => {
+        alert("ไม่สามารถอ่านหรือบีบอัดไฟล์รูปภาพได้ค่ะ ❌");
+      });
     }
   };
 
@@ -304,17 +297,13 @@ export default function ProfileTab({
   const handleFileChangeForDeposit = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("ขนาดไฟล์รูปภาพสลิปมีขนาดใหญ่เกิน 5MB ค่ะ");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setDepositSlipBase64(reader.result);
+      compressImage(file, 500, 0.6).then((compressed) => {
+        if (compressed) {
+          setDepositSlipBase64(compressed);
         }
-      };
-      reader.readAsDataURL(file);
+      }).catch(() => {
+        alert("ไม่สามารถอัปโหลดหรือบีบอัดรูปภาพสลิปได้ค่ะ ❌");
+      });
     }
   };
 
@@ -344,10 +333,10 @@ export default function ProfileTab({
     const updatedList = [freshDeposit, ...deposits];
     onUpdateDeposits(updatedList);
 
+    alert(`ส่งรหัสแจ้งฝากเงิน [${nextId}] ยอดเงิน ${depositAmountInput.toLocaleString()} THB สำเร็จเรียบร้อยแล้วค่ะ! รอแอดมินตรวจบัญชีโอนสลิปและกดยืนยันเครดิตจ้า 🥳`);
     setDepositAmountInput(0);
     setDepositSlipBase64('');
     setShowDepositPopup(false);
-    alert(`ส่งรหัสแจ้งฝากเงิน [${nextId}] ยอดเงิน ${depositAmountInput.toLocaleString()} THB สำเร็จเรียบร้อยแล้วค่ะ! รอแอดมินตรวจบัญชีโอนสลิปและกดยืนยันเครดิตจ้า 🥳`);
   };
 
   const handleApplyWithdraw = (e: React.FormEvent) => {
@@ -409,14 +398,14 @@ export default function ProfileTab({
   const handleFileChangeForAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onUpdateAvatar(reader.result);
+      compressImage(file, 200, 0.6).then((compressed) => {
+        if (compressed) {
+          onUpdateAvatar(compressed);
           alert('อัปโหลดและเปลี่ยนภาพโปรไฟล์เรียบร้อยแล้วค่ะ');
         }
-      };
-      reader.readAsDataURL(file);
+      }).catch(() => {
+        alert("ไม่สามารถอัปโหลดหรือบีบอัดภาพโปรไฟล์ได้ค่ะ ❌");
+      });
     }
   };
 
