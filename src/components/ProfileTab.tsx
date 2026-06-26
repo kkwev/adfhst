@@ -124,7 +124,10 @@ export default function ProfileTab({
   const handleSaveEditProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    const productPayload = { ...editingProduct };
+    const productPayload = { 
+      ...editingProduct,
+      status: (currentUser?.role === 'Merchant' ? 'pending' : editingProduct.status) as any
+    };
     setShowEditModal(false);
     setEditingProduct(null);
     setTimeout(() => {
@@ -1427,8 +1430,19 @@ export default function ProfileTab({
                     value={editingProduct.status}
                     onChange={(e) => setEditingProduct({ ...editingProduct, status: e.target.value as any })}
                   >
-                    <option value="approved">เปิดขายปกติ (Active)</option>
-                    <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                    {currentUser?.role === 'Merchant' ? (
+                      <>
+                        <option value="pending">ส่งเพื่อรอการอนุมัติ (Submit for Approval)</option>
+                        <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="approved">เปิดขายปกติ (Active / Approved)</option>
+                        <option value="pending">รอการอนุมัติ (Pending)</option>
+                        <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                        <option value="rejected">ปฏิเสธการระงับ (Rejected)</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
