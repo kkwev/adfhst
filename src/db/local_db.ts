@@ -233,10 +233,6 @@ export const SEED_WITHDRAWALS: WithdrawalRequest[] = [
 
 // Initialize database with seed data if vacant
 export function initializeDB() {
-  if (localStorage.getItem("paopao_all_products_deleted_v3") !== "true") {
-    localStorage.setItem("paopao_products", JSON.stringify([]));
-    localStorage.setItem("paopao_all_products_deleted_v3", "true");
-  }
   if (!localStorage.getItem("paopao_users")) {
     localStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
   }
