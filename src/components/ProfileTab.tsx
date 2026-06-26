@@ -1278,7 +1278,7 @@ export default function ProfileTab({
 
               {/* Demo target Bank account details replaced with notice */}
               <div className="p-3 bg-red-50 rounded-2xl border border-red-100 flex flex-col gap-1 text-[10px] text-red-800 font-extrabold leading-normal">
-                <p className="text-xs font-black">ℹ️ หมายเหตุสำคัญ</p>
+                <p className="text-xs font-black">ℹ️ หมายเหตุทางระบบ :</p>
                 <p className="text-red-700 font-black text-[10.5px]">• โปรดติดต่อฝ่ายบริการลูกค้าเพื่อขอเลขบัญชีสำหรับการฝากเงินเข้ากระเป๋าตังค์</p>
               </div>
 
