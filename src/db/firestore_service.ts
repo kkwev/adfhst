@@ -44,6 +44,27 @@ export function onFirestoreQuotaExceeded(cb: () => void) {
   onQuotaExceededCallback = cb;
 }
 
+// Helper to recursively strip undefined properties from an object before writing to Firestore
+export function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item)) as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const key of Object.keys(obj as any)) {
+      const val = (obj as any)[key];
+      if (val !== undefined) {
+        cleaned[key] = cleanUndefined(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 export const dbStateCache: { [key: string]: any } = {};
 
 export function updateFirestoreCache(key: string, data: any) {
@@ -144,41 +165,41 @@ export async function initializeFirestoreDB() {
       const localDeposits = getStoredData<DepositRequest[]>("paopao_deposits", []);
 
       // 1. Settings
-      await setDoc(settingsRef, localSettings);
+      await setDoc(settingsRef, cleanUndefined(localSettings));
       
       // 2. Users (preserve registered accounts!)
       for (const u of localUsers) {
-        await setDoc(doc(db, "users", u.id), u);
+        await setDoc(doc(db, "users", u.id), cleanUndefined(u));
       }
       
       // 3. Products
       for (const p of localProducts) {
-        await setDoc(doc(db, "products", p.id), p);
+        await setDoc(doc(db, "products", p.id), cleanUndefined(p));
       }
       
       // 4. Notifications
       for (const n of localNotifications) {
-        await setDoc(doc(db, "notifications", n.id), n);
+        await setDoc(doc(db, "notifications", n.id), cleanUndefined(n));
       }
       
       // 5. Orders
       for (const o of localOrders) {
-        await setDoc(doc(db, "orders", o.id), o);
+        await setDoc(doc(db, "orders", o.id), cleanUndefined(o));
       }
       
       // 6. Chats
       for (const c of localChats) {
-        await setDoc(doc(db, "chats", c.id), c);
+        await setDoc(doc(db, "chats", c.id), cleanUndefined(c));
       }
       
       // 7. Withdrawals
       for (const w of localWithdrawals) {
-        await setDoc(doc(db, "withdrawals", w.id), w);
+        await setDoc(doc(db, "withdrawals", w.id), cleanUndefined(w));
       }
 
       // 8. Deposits
       for (const d of localDeposits) {
-        await setDoc(doc(db, "deposits", d.id), d);
+        await setDoc(doc(db, "deposits", d.id), cleanUndefined(d));
       }
       
       console.log("Firestore database seeded successfully!");
@@ -196,49 +217,49 @@ export async function initializeFirestoreDB() {
       // 1. Users (merge registered/modified profiles)
       for (const u of localUsers) {
         if (u && u.id) {
-          await setDoc(doc(db, "users", u.id), u, { merge: true });
+          await setDoc(doc(db, "users", u.id), cleanUndefined(u), { merge: true });
         }
       }
       
       // 2. Products
       for (const p of localProducts) {
         if (p && p.id) {
-          await setDoc(doc(db, "products", p.id), p, { merge: true });
+          await setDoc(doc(db, "products", p.id), cleanUndefined(p), { merge: true });
         }
       }
       
       // 3. Notifications
       for (const n of localNotifications) {
         if (n && n.id) {
-          await setDoc(doc(db, "notifications", n.id), n, { merge: true });
+          await setDoc(doc(db, "notifications", n.id), cleanUndefined(n), { merge: true });
         }
       }
       
       // 4. Orders
       for (const o of localOrders) {
         if (o && o.id) {
-          await setDoc(doc(db, "orders", o.id), o, { merge: true });
+          await setDoc(doc(db, "orders", o.id), cleanUndefined(o), { merge: true });
         }
       }
       
       // 5. Chats
       for (const c of localChats) {
         if (c && c.id) {
-          await setDoc(doc(db, "chats", c.id), c, { merge: true });
+          await setDoc(doc(db, "chats", c.id), cleanUndefined(c), { merge: true });
         }
       }
       
       // 6. Withdrawals
       for (const w of localWithdrawals) {
         if (w && w.id) {
-          await setDoc(doc(db, "withdrawals", w.id), w, { merge: true });
+          await setDoc(doc(db, "withdrawals", w.id), cleanUndefined(w), { merge: true });
         }
       }
       
       // 7. Deposits
       for (const d of localDeposits) {
         if (d && d.id) {
-          await setDoc(doc(db, "deposits", d.id), d, { merge: true });
+          await setDoc(doc(db, "deposits", d.id), cleanUndefined(d), { merge: true });
         }
       }
       
@@ -266,7 +287,7 @@ export async function saveToFirestore(key: string, data: any) {
       if (cachedSettings && JSON.stringify(cachedSettings) === JSON.stringify(data)) {
         return; // No change
       }
-      await setDoc(doc(db, "settings", "main"), data);
+      await setDoc(doc(db, "settings", "main"), cleanUndefined(data));
       dbStateCache["paopao_settings"] = JSON.parse(JSON.stringify(data));
       return;
     }
@@ -291,7 +312,7 @@ export async function saveToFirestore(key: string, data: any) {
       if (item && item.id) {
         const cachedItem = cachedMap.get(item.id);
         if (!cachedItem || JSON.stringify(cachedItem) !== JSON.stringify(item)) {
-          await setDoc(doc(db, collectionName, item.id), item);
+          await setDoc(doc(db, collectionName, item.id), cleanUndefined(item));
         }
       }
     }
