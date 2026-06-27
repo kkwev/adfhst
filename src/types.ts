@@ -126,6 +126,7 @@ export interface DepositRequest {
   userName: string;
   amount: number;
   bonus?: number;
+  comment?: string; // Optional admin comment/remark
   slipImage: string; // Base64 slip
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
