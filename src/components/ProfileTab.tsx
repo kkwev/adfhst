@@ -261,6 +261,7 @@ export default function ProfileTab({
       id: d.id,
       type: "deposit",
       amount: d.amount,
+      bonus: d.bonus || 0,
       date: d.createdAt.replace('T', ' ').substring(0, 16),
       note: noteText
     };
@@ -701,6 +702,11 @@ export default function ProfileTab({
                     <span className={`font-black font-mono ${tx.type === 'deposit' ? 'text-teal-600' : 'text-rose-600'}`}>
                       {tx.type === 'deposit' ? '+' : '-'}{tx.amount.toLocaleString()} THB
                     </span>
+                    {(tx as any).bonus && (tx as any).bonus > 0 ? (
+                      <span className="text-[9px] text-pink-600 font-extrabold bg-pink-50 px-1.5 py-0.5 rounded border border-pink-100 mt-0.5">
+                        โบนัส: +{(tx as any).bonus.toLocaleString()} THB
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -1521,6 +1527,57 @@ export default function ProfileTab({
                       onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Additional Images Section (Edit Mode - Profile Tab) */}
+              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
+                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center">
+                  <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
+                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มได้หลายๆ รูป</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(editingProduct.images || []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 group bg-white shadow-sm shrink-0">
+                      <img src={imgUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedImgs = (editingProduct.images || []).filter((_, i) => i !== idx);
+                          setEditingProduct({ ...editingProduct, images: updatedImgs });
+                        }}
+                        className="absolute inset-0 bg-red-600/80 text-white font-bold text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
+                    <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
+                    <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const files = Array.from(e.target.files);
+                          files.forEach(file => {
+                            compressImage(file as File, 600, 0.6).then(base64 => {
+                              if (base64) {
+                                const currentImgs = editingProduct.images || [];
+                                setEditingProduct({ 
+                                  ...editingProduct, 
+                                  images: [...currentImgs, base64] 
+                                });
+                              }
+                            });
+                          });
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               </div>
 
