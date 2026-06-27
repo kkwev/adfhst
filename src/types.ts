@@ -38,6 +38,7 @@ export interface Product {
   name: string;
   description: string;
   image: string;
+  images?: string[];
   price: number;
   salesVolume: number;
   status: 'pending' | 'approved' | 'rejected' | 'paused';
@@ -124,6 +125,7 @@ export interface DepositRequest {
   userPhone: string;
   userName: string;
   amount: number;
+  bonus?: number;
   slipImage: string; // Base64 slip
   status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
