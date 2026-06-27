@@ -1079,15 +1079,6 @@ export default function App() {
       status: 'pending',
       createdAt: new Date().toISOString()
     };
-    const updatedUser = {
-      ...currentUser,
-      wallet: (currentUser.wallet || 0) - amount
-    };
-    setCurrentUser(updatedUser);
-    localStorage.setItem("paopao_session_user", JSON.stringify(updatedUser));
-    const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUser : u);
-    setUsers(updatedUsers);
-    setStoredData("paopao_users", updatedUsers);
     const updatedWithdrawals = [newRequest, ...withdrawals];
     setWithdrawals(updatedWithdrawals);
     setStoredData("paopao_withdrawals", updatedWithdrawals);
