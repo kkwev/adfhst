@@ -74,11 +74,13 @@ export default function HomeTab({
 
   // Product Detail Modal state
   const [selectedProductDetails, setSelectedProductDetails] = useState<Product | null>(null);
+  const [activeDetailImgIdx, setActiveDetailImgIdx] = useState<number>(0);
   const [modalSelections, setModalSelections] = useState<{ [category: string]: string }>({});
   const [modalQty, setModalQty] = useState<number>(1);
 
   const openProductDetails = (product: Product) => {
     setSelectedProductDetails(product);
+    setActiveDetailImgIdx(0);
     // Grab option defaults
     const currentSel = cardSelections[product.id] || {};
     const defaultSel: { [category: string]: string } = { ...currentSel };
@@ -144,6 +146,7 @@ export default function HomeTab({
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdPrice, setNewProdPrice] = useState(0);
   const [newProdImage, setNewProdImage] = useState('');
+  const [newProdImages, setNewProdImages] = useState<string[]>([]);
   const [newProdMerchantName, setNewProdMerchantName] = useState('');
   const [newProdCategory, setNewProdCategory] = useState('APPAREL');
   // Dynamic Option Generator: e.g. [ { category: "ขนาด", list: [{name:"M", stock: 10}] } ]
@@ -516,6 +519,7 @@ export default function HomeTab({
       name: newProdName,
       description: newProdDesc,
       image: imageUrl,
+      images: [imageUrl, ...newProdImages].filter(Boolean),
       price: newProdPrice,
       status: 'pending' as const, // All newly added products must go to admin approval first before being sold on the homepage!
       options: newOptions,
@@ -528,6 +532,7 @@ export default function HomeTab({
     setNewProdDesc('');
     setNewProdPrice(0);
     setNewProdImage('');
+    setNewProdImages([]);
     setNewProdMerchantName('');
     setNewProdCategory('APPAREL');
     setNewOptions([
@@ -579,11 +584,16 @@ export default function HomeTab({
   return (
     <div className="pb-28">
       {/* Sephora Announcement Banner */}
-      <div className="bg-neutral-950 text-white py-2.5 px-4 text-xs font-medium border-b border-neutral-800 flex items-center justify-center gap-2 select-none shadow-sm font-sans tracking-wide">
-        <Megaphone size={14} className="text-red-500 animate-bounce shrink-0" />
-        <span className="text-center text-[11px] sm:text-xs leading-normal">
-          ยินดีต้อนรับเข้าสู่แพลตฟอร์ม <strong className="text-red-500 font-black">SEPHORA THAILAND</strong> ร้านค้าออนไลน์ แหล่งรวมสินค้ามือ1และมือ2 มากมาย เวลาทำการของทางระบบ <span className="font-mono font-bold bg-neutral-800 px-1.5 py-0.5 rounded text-white text-[10.5px]">10.00 - 22.00 น.</span> อัพเดตระบบทุกวันอาทิตย์
-        </span>
+      <div className="bg-neutral-950 text-white py-2.5 px-4 text-xs font-medium border-b border-neutral-800 flex items-center gap-2.5 select-none shadow-sm font-sans tracking-wide overflow-hidden relative">
+        <div className="flex items-center gap-1.5 shrink-0 bg-neutral-950 z-10 pr-2 border-r border-neutral-800">
+          <Megaphone size={14} className="text-red-500 animate-bounce shrink-0" />
+          <span className="text-[10px] uppercase font-black tracking-wider text-red-500 font-display">PR</span>
+        </div>
+        <div className="w-full overflow-hidden whitespace-nowrap relative flex items-center">
+          <span className="animate-marquee inline-block hover:[animation-play-state:paused] text-[11px] sm:text-xs leading-none">
+            ยินดีต้อนรับเข้าสู่แพลตฟอร์ม <strong className="text-red-500 font-black">SEPHORA THAILAND</strong> ร้านค้าออนไลน์ แหล่งรวมสินค้ามือ1และมือ2 มากมาย เวลาทำการของทางระบบ <span className="font-mono font-bold bg-neutral-800 px-1.5 py-0.5 rounded text-white text-[10.5px]">10.00 - 22.00 น.</span> อัพเดตระบบทุกวันอาทิตย์
+          </span>
+        </div>
       </div>
 
       {/* 2. Banner/Promotion Slides */}
@@ -1196,6 +1206,50 @@ export default function HomeTab({
                 </div>
               </div>
 
+              {/* Additional Images Section */}
+              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
+                <label className="text-xs font-bold text-gray-750 text-gray-700 flex justify-between items-center">
+                  <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
+                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มเติมได้หลายๆ รูป</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {newProdImages.map((imgUrl, idx) => (
+                    <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 group bg-white shadow-sm shrink-0">
+                      <img src={imgUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button
+                        type="button"
+                        onClick={() => setNewProdImages(prev => prev.filter((_, i) => i !== idx))}
+                        className="absolute inset-0 bg-red-600/80 text-white font-bold text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
+                    <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
+                    <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const files = Array.from(e.target.files);
+                          files.forEach(file => {
+                            compressImage(file as File, 600, 0.6).then(base64 => {
+                              if (base64) {
+                                setNewProdImages(prev => [...prev, base64]);
+                              }
+                            });
+                          });
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
               {/* Advanced Option Builder */}
               <div className="border border-gray-100 p-3 rounded-2xl bg-gray-50/50 space-y-3">
                 <div className="flex justify-between items-center border-b pb-1">
@@ -1412,6 +1466,57 @@ export default function HomeTab({
                       onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Additional Images Section (Edit Mode) */}
+              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
+                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center">
+                  <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
+                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มได้หลายๆ รูป</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {(editingProduct.images || []).map((imgUrl, idx) => (
+                    <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 group bg-white shadow-sm shrink-0">
+                      <img src={imgUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updatedImgs = (editingProduct.images || []).filter((_, i) => i !== idx);
+                          setEditingProduct({ ...editingProduct, images: updatedImgs });
+                        }}
+                        className="absolute inset-0 bg-red-600/80 text-white font-bold text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                      >
+                        ลบ
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
+                    <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
+                    <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          const files = Array.from(e.target.files);
+                          files.forEach(file => {
+                            compressImage(file as File, 600, 0.6).then(base64 => {
+                              if (base64) {
+                                const currentImgs = editingProduct.images || [];
+                                setEditingProduct({ 
+                                  ...editingProduct, 
+                                  images: [...currentImgs, base64] 
+                                });
+                              }
+                            });
+                          });
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               </div>
 
@@ -1806,19 +1911,45 @@ export default function HomeTab({
             <div className="overflow-y-auto flex-1 pr-1 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                {/* Left side: Product Image */}
-                <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
-                  <img 
-                    src={selectedProductDetails.image} 
-                    alt={selectedProductDetails.name} 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                  {(selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) && (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white backdrop-blur-[1px]">
-                      <span className="text-sm font-bold border-2 border-white px-4 py-1.5 font-display tracking-widest uppercase">
-                        OUT OF STOCK
-                      </span>
+                {/* Left side: Product Image with thumbnail selector */}
+                <div className="flex flex-col gap-3">
+                  <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
+                    <img 
+                      src={(selectedProductDetails.images && selectedProductDetails.images.length > 0) ? (selectedProductDetails.images[activeDetailImgIdx] || selectedProductDetails.image) : selectedProductDetails.image} 
+                      alt={selectedProductDetails.name} 
+                      className="w-full h-full object-cover transition-all duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                    {(selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white backdrop-blur-[1px]">
+                        <span className="text-sm font-bold border-2 border-white px-4 py-1.5 font-display tracking-widest uppercase">
+                          OUT OF STOCK
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {selectedProductDetails.images && selectedProductDetails.images.length > 1 && (
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                      {selectedProductDetails.images.map((imgUrl, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setActiveDetailImgIdx(index)}
+                          className={`w-14 h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                            index === activeDetailImgIdx 
+                              ? 'border-[#FF1E27] scale-95 shadow-sm' 
+                              : 'border-transparent opacity-75 hover:opacity-100'
+                          }`}
+                        >
+                          <img 
+                            src={imgUrl} 
+                            alt={`Thumbnail ${index + 1}`} 
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
