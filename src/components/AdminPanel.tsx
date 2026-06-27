@@ -93,6 +93,8 @@ export default function AdminPanel({
   const [expandedSlipUrl, setExpandedSlipUrl] = useState<string | null>(null);
   const [depositApprovalReq, setDepositApprovalReq] = useState<DepositRequest | null>(null);
   const [depositBonusAmount, setDepositBonusAmount] = useState<number>(0);
+  const [depositActionComment, setDepositActionComment] = useState('');
+  const [depositRejectionReq, setDepositRejectionReq] = useState<DepositRequest | null>(null);
   const [editingWithDrawalId, setEditingWithDrawalId] = useState<string | null>(null);
   const [editingWithDrawalAmount, setEditingWithDrawalAmount] = useState<number>(0);
 
@@ -422,7 +424,7 @@ export default function AdminPanel({
     setWithdrawActionComment('');
   };
 
-  const handleProcessDepositRequest = (reqId: string, approve: boolean, bonusAmt: number = 0) => {
+  const handleProcessDepositRequest = (reqId: string, approve: boolean, bonusAmt: number = 0, actionComment: string = '') => {
     const matchedReq = deposits.find(d => d.id === reqId);
     if (!matchedReq) return;
 
@@ -443,7 +445,8 @@ export default function AdminPanel({
         return { 
           ...d, 
           status: approve ? 'approved' as const : 'rejected' as const,
-          bonus: approve ? bonusAmt : undefined
+          bonus: approve ? bonusAmt : undefined,
+          comment: actionComment || undefined
         };
       }
       return d;
@@ -467,8 +470,8 @@ export default function AdminPanel({
       userId: matchedReq.userId,
       title: approve ? "การแจ้งฝากเงินได้รับการอนุมัติเติมเครดิตแล้ว" : "การแจ้งฝากเงินของคุณถูกปฏิเสธ",
       message: approve 
-        ? `ยอดเงินฝากจำนวน ${matchedReq.amount.toLocaleString()} บาท ได้รับการอนุมัติเรียบร้อยแล้วและเพิ่มยอดเงินเข้าสู่ Wallet ของคุณแล้วค่ะ${bonusAmt > 0 ? ` พร้อมได้รับโบนัสเงินพิเศษเพิ่มเติมอีกจำนวน ${bonusAmt.toLocaleString()} บาท ด้วยค่ะ!` : ''} ขอให้สนุกกับการช้อปปิ้งนะคะ 💖`
-        : `ยอดแจ้งฝากเงินจำนวน ${matchedReq.amount.toLocaleString()} THB ถูกปฏิเสธเนื่องจากตรวจสอบพบความขัดแย้งของข้อมูลหรือรูปสลิปไม่สมบูรณ์ โปรดทำรายการอีกครั้งค่ะ`,
+        ? `ยอดเงินฝากจำนวน ${matchedReq.amount.toLocaleString()} บาท ได้รับการอนุมัติเรียบร้อยแล้วและเพิ่มยอดเงินเข้าสู่ Wallet ของคุณแล้วค่ะ${bonusAmt > 0 ? ` พร้อมได้รับโบนัสเงินพิเศษเพิ่มเติมอีกจำนวน ${bonusAmt.toLocaleString()} บาท ด้วยค่ะ!` : ''}${actionComment ? ` (หมายเหตุจากผู้ดูแลระบบ: ${actionComment})` : ''} ขอให้สนุกกับการช้อปปิ้งนะคะ 💖`
+        : `ยอดแจ้งฝากเงินจำนวน ${matchedReq.amount.toLocaleString()} THB ถูกปฏิเสธเนื่องจากตรวจสอบพบความขัดแย้งของข้อมูลหรือรูปสลิปไม่สมบูรณ์ โปรดทำรายการอีกครั้งค่ะ${actionComment ? ` (หมายเหตุจากผู้ดูแลระบบ: ${actionComment})` : ''}`,
       isSystemAnnouncement: false,
       createdAt: new Date().toISOString()
     };
@@ -477,7 +480,7 @@ export default function AdminPanel({
     logOnlineAction(
       "financial",
       approve ? "อนุมัติการฝากเงิน" : "ปฏิเสธการฝากเงิน",
-      `${approve ? `อนุมัติเพิ่มเครดิตจำนวน ${matchedReq.amount.toLocaleString()} บาท${bonusAmt > 0 ? ` (พร้อมโบนัส ${bonusAmt.toLocaleString()} บาท)` : ''}` : 'ปฏิเสธคำร้องฝาก'} ของสมาชิก ${matchedReq.userName} (${matchedReq.userId})`,
+      `${approve ? `อนุมัติเพิ่มเครดิตจำนวน ${matchedReq.amount.toLocaleString()} บาท${bonusAmt > 0 ? ` (พร้อมโบนัส ${bonusAmt.toLocaleString()} บาท)` : ''}` : 'ปฏิเสธคำร้องฝาก'} ของสมาชิก ${matchedReq.userName} (${matchedReq.userId})${actionComment ? ` หมายเหตุ : ${actionComment}` : ''}`,
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
@@ -988,16 +991,6 @@ export default function AdminPanel({
         >
           <ToggleLeft size={14} />
           <span className="text-[9px] leading-none text-center font-display">8. คุมการขายร้านค้า</span>
-        </button>
-
-        <button
-          onClick={() => setActiveModule('online_actions_log')}
-          className={`py-3 px-1 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-all border ${
-            activeModule === 'online_actions_log' ? 'bg-gray-900 border-transparent text-white shadow shadow-red-200' : 'bg-white border-gray-100 text-gray-500 hover:text-gray-900 shadow-sm'
-          }`}
-        >
-          <Database size={14} />
-          <span className="text-[9px] leading-none text-center font-display">9. บันทึกกระทำออนไลน์</span>
         </button>
       </div>
 
@@ -1619,14 +1612,14 @@ export default function AdminPanel({
                               <div className="flex gap-1.5 justify-center">
                                 <button
                                   type="button"
-                                  onClick={() => { setDepositApprovalReq(dReq); setDepositBonusAmount(0); }}
+                                  onClick={() => { setDepositApprovalReq(dReq); setDepositBonusAmount(0); setDepositActionComment(''); }}
                                   className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[10px] px-3 py-1.5 rounded-xl shadow-sm cursor-pointer transition-all active:scale-95 leading-none"
                                 >
                                   ✓ อนุมัติฝากเงิน
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleProcessDepositRequest(dReq.id, false)}
+                                  onClick={() => { setDepositRejectionReq(dReq); setDepositActionComment(''); }}
                                   className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] px-3 py-1.5 rounded-xl shadow-sm cursor-pointer transition-all active:scale-95 leading-none"
                                 >
                                   ✗ ปฏิเสธ
@@ -2186,14 +2179,6 @@ export default function AdminPanel({
                 <span className="text-[10px] font-black text-gray-800 block uppercase font-mono">🔄 ศูนย์แก้ไขรายละเอียดและสต็อกสินค้าส่วนกลาง (Central product catalog manager)</span>
                 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleDeleteAllProductsCentral}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 cursor-pointer shadow-sm shadow-red-100"
-                  >
-                    <Trash2 size={14} /> ลบสินค้าทั้งหมดในระบบ
-                  </button>
-
                   {/* Search products filter */}
                   <input
                     type="text"
@@ -2719,7 +2704,7 @@ export default function AdminPanel({
         )}
 
         {/* 4.9. ONLINE ACTIONS AUDIT LOG MODULE */}
-        {activeModule === 'online_actions_log' && (
+        {activeModule === 'online_actions_log' && false && (
           <div className="bg-white rounded-3xl p-6 border border-gray-150 shadow-sm space-y-6 animate-fade-in">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
@@ -3080,6 +3065,21 @@ export default function AdminPanel({
                 </div>
               </div>
 
+              {/* Optional Comment Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-gray-700 flex justify-between items-center">
+                  <span>📝 หมายเหตุสำหรับการอนุมัติ (ระบุหรือไม่ก็ได้)</span>
+                  <span className="text-[10px] text-gray-400 font-bold">* ไม่บังคับ</span>
+                </label>
+                <input
+                  type="text"
+                  value={depositActionComment}
+                  onChange={(e) => setDepositActionComment(e.target.value)}
+                  placeholder="เช่น ได้รับยอดตรงโอนเงินจริง, อนุมัติโบนัสพิเศษ..."
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                />
+              </div>
+
               {/* Calculation Preview */}
               <div className="bg-teal-50 border border-teal-100 rounded-2xl p-3.5 space-y-1 text-center">
                 <span className="text-[10px] text-teal-800 font-black block">รวมยอดเงินที่จะเข้า Wallet ของผู้ใช้</span>
@@ -3105,12 +3105,106 @@ export default function AdminPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    handleProcessDepositRequest(depositApprovalReq.id, true, depositBonusAmount);
+                    handleProcessDepositRequest(depositApprovalReq.id, true, depositBonusAmount, depositActionComment);
                     setDepositApprovalReq(null);
                   }}
                   className="py-3 px-4 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-black text-xs active:scale-95 transition-all cursor-pointer text-center shadow-sm"
                 >
                   ✓ ยืนยันอนุมัติฝากเงิน
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP DEPOSIT REJECTION WITH OPTIONAL COMMENT */}
+      {depositRejectionReq && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setDepositRejectionReq(null)}
+        >
+          <div 
+            className="relative bg-white rounded-3xl overflow-hidden max-w-md w-full p-6 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <h4 className="text-sm font-black text-gray-900 flex items-center gap-1.5">
+                <span className="text-rose-600">✗</span> ปฏิเสธการฝากเงินเข้าระบบ
+              </h4>
+              <button 
+                type="button"
+                onClick={() => setDepositRejectionReq(null)}
+                className="text-gray-400 hover:text-gray-600 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Request Info */}
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">ผู้ทำรายการ:</span>
+                  <span className="text-gray-900 font-black">{depositRejectionReq.userName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">เบอร์โทรศัพท์:</span>
+                  <span className="text-gray-950 font-mono font-bold">{depositRejectionReq.userPhone}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500 font-bold">จำนวนเงินที่แจ้งโอน:</span>
+                  <span className="text-rose-600 text-sm font-black">{depositRejectionReq.amount.toLocaleString()} THB</span>
+                </div>
+                {depositRejectionReq.slipImage && (
+                  <div className="pt-2 border-t flex flex-col gap-1.5">
+                    <span className="text-[10px] text-gray-400 font-bold">ภาพหลักฐานสลิป:</span>
+                    <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden border flex items-center justify-center">
+                      <img 
+                        src={depositRejectionReq.slipImage} 
+                        alt="Slip thumbnail" 
+                        className="max-h-full max-w-full object-contain cursor-zoom-in"
+                        onClick={() => setExpandedSlipUrl(depositRejectionReq.slipImage)}
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Comment Input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-gray-700 flex justify-between items-center">
+                  <span>📝 หมายเหตุ / เหตุผลการปฏิเสธ (ระบุหรือไม่ก็ได้)</span>
+                  <span className="text-[10px] text-gray-400 font-bold">* ไม่บังคับ</span>
+                </label>
+                <input
+                  type="text"
+                  value={depositActionComment}
+                  onChange={(e) => setDepositActionComment(e.target.value)}
+                  placeholder="เช่น สลิปไม่ถูกต้อง, ยอดโอนไม่ครบถ้วน..."
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDepositRejectionReq(null)}
+                  className="py-3 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs active:scale-95 transition-all cursor-pointer text-center"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleProcessDepositRequest(depositRejectionReq.id, false, 0, depositActionComment);
+                    setDepositRejectionReq(null);
+                  }}
+                  className="py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs active:scale-95 transition-all cursor-pointer text-center shadow-sm"
+                >
+                  ✗ ยืนยันปฏิเสธคำขอ
                 </button>
               </div>
             </div>
