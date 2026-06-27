@@ -320,17 +320,6 @@ export default function AdminPanel({
     };
     onUpdateDeposits([freshManualDeposit, ...deposits]);
 
-    // Write a dummy order push of the funding transaction
-    const newNotif: SystemNotification = {
-      id: `N-DEP-${Date.now()}`,
-      userId: memberDepositSelect.id,
-      title: "เติมเงิน Wallet สำเร็จผ่านแอดมินหลังบ้าน",
-      message: `แอดมินได้เติมคริสพาวเวอร์ฝากเงินจำนวน ${depositAmount.toLocaleString()} THB เข้า Wallet ของคุณเรียบร้อยแล้วค่ะ! ขอให้สนุกกับการช้อปปิ้งออนไลน์ (หมายเหตุทางระบบ : ${depositComment || 'ทำรายการเครดิตสำเร็จ'})`,
-      isSystemAnnouncement: false,
-      createdAt: new Date().toISOString()
-    };
-    onUpdateNotifications([...notifications, newNotif]);
-
     logOnlineAction(
       "financial",
       "เติมเงินระบบสำเร็จ (แอดมิน)",
@@ -338,7 +327,7 @@ export default function AdminPanel({
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
-    alert(`เครดิตเติมเงินจำนวน ${depositAmount} THB เข้าสู่ประเป๋าเงินของคุณ ${memberDepositSelect.name} สำเร็จและส่ง Push แจ้งเตือนแล้ว!`);
+    alert(`เครดิตเติมเงินจำนวน ${depositAmount} THB เข้าสู่กระเป๋าเงินของคุณ ${memberDepositSelect.name} สำเร็จเรียบร้อยแล้วค่ะ!`);
     setDepositAmount(0);
     setDepositComment('');
     setMemberDepositSelect(null);
@@ -363,17 +352,6 @@ export default function AdminPanel({
 
     onUpdateUsers(updated);
 
-    // Dynamic push notification of manually withdrawn funds from system wallet
-    const newNotif: SystemNotification = {
-      id: `N-WDR-${Date.now()}`,
-      userId: withdrawMerchantSelect.id,
-      title: "หักลดยอดเงิน Wallet สำเร็จจากแอดมินหลังบ้าน 📥",
-      message: `แอดมินได้ตกลงกดยอดถอนหักเงินออกจากประเป๋าตังค์คู่สัญญานัดหมายจำนวน ${withdrawAmountManual.toLocaleString()} THB สำเร็จกัปตัน (หมายเหตุทางระบบ : ${withdrawCommentManual || 'ไม่มีหมายเหตุระบุไว้'})`,
-      isSystemAnnouncement: false,
-      createdAt: new Date().toISOString()
-    };
-    onUpdateNotifications([...notifications, newNotif]);
-
     logOnlineAction(
       "financial",
       "หักยอดเงินสำเร็จ (แอดมิน)",
@@ -381,7 +359,7 @@ export default function AdminPanel({
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
 
-    alert(`ทำการถอนเงินจำนวน ${withdrawAmountManual.toLocaleString()} THB จากบัญชีคุณ ${withdrawMerchantSelect.name} สมบูรณ์แบบ ยอดเงินในเป๋าตังค์ลบออกเรียบร้อยจ้า! ✨`);
+    alert(`ทำการถอนเงินจำนวน ${withdrawAmountManual.toLocaleString()} THB จากบัญชีคุณ ${withdrawMerchantSelect.name} เสร็จสมบูรณ์แล้วค่ะ!`);
     setWithdrawAmountManual(0);
     setWithdrawCommentManual('');
     setWithdrawMerchantSelect(null);
@@ -462,7 +440,11 @@ export default function AdminPanel({
     // Update Deposit Request status
     const updatedDeposits = deposits.map(d => {
       if (d.id === reqId) {
-        return { ...d, status: approve ? 'approved' as const : 'rejected' as const };
+        return { 
+          ...d, 
+          status: approve ? 'approved' as const : 'rejected' as const,
+          bonus: approve ? bonusAmt : undefined
+        };
       }
       return d;
     });
@@ -1444,17 +1426,6 @@ export default function AdminPanel({
                                       return w;
                                     });
                                     onUpdateWithdrawals(updated);
-                                    
-                                    // Live notification message
-                                    const adjustNotif: SystemNotification = {
-                                      id: `N-WIT-ADJ-${Date.now()}`,
-                                      userId: wReq.merchantId,
-                                      title: "หลังบ้านได้ปรับเปลี่ยนยอดคำขอถอนเงินของคุณ",
-                                      message: `ยอดคำขอถอนเงินรหัสบิล ${wReq.id} ของคุณ ถูกปรับเปลี่ยนโดยแอดมินจากยอดเดิม ${wReq.amount.toLocaleString()} THB เป็นยอดใหม่จำนวน ${editingWithDrawalAmount.toLocaleString()} THB`,
-                                      isSystemAnnouncement: false,
-                                      createdAt: new Date().toISOString()
-                                    };
-                                    onUpdateNotifications([...notifications, adjustNotif]);
 
                                     alert(`ปรับปรุงยอดคำขอถอนเงินสำเร็จ! เปลี่ยนยอดเป้าหมายจาก ${wReq.amount.toLocaleString()} เป็น ${editingWithDrawalAmount.toLocaleString()} THB เรียบร้อยแล้วค่ะ`);
                                     setEditingWithDrawalId(null);
@@ -2295,10 +2266,10 @@ export default function AdminPanel({
 
                   {/* Image input with local machine uploader file feature */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-550 block">แก้ไขรูปภาพสินค้า (อัพโหลดดึงรูปจากเครื่อง หรือระบุที่อยู่ URL) 📷</label>
+                    <label className="text-[10px] font-bold text-gray-550 block">แก้ไขรูปภาพหลักสินค้า (อัพโหลดดึงรูปจากเครื่อง หรือระบุที่อยู่ URL) 📷</label>
                     <div className="flex flex-col sm:flex-row items-center gap-3.5 bg-white p-3.5 border rounded-2xl">
                       {editingCatalogProduct.image ? (
-                        <img src={editingCatalogProduct.image} alt="Preview" className="w-14 h-14 object-cover rounded-xl border bg-gray-50 shadow-xs" />
+                        <img src={editingCatalogProduct.image} alt="Preview" className="w-14 h-14 object-cover rounded-xl border bg-gray-50 shadow-xs" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center font-bold text-gray-400 text-[10px]">ไม่มีภาพ</div>
                       )}
@@ -2333,6 +2304,54 @@ export default function AdminPanel({
                           />
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Additional Images Section (Admin Panel Edit Catalog) */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-gray-550 block">รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</label>
+                    <div className="flex flex-wrap gap-2 bg-white p-3 border rounded-2xl">
+                      {(editingCatalogProduct.images || []).map((imgUrl, idx) => (
+                        <div key={idx} className="relative w-12 h-12 rounded-xl overflow-hidden border border-gray-200 group bg-white shadow-xs shrink-0">
+                          <img src={imgUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updatedImgs = (editingCatalogProduct.images || []).filter((_, i) => i !== idx);
+                              setEditingCatalogProduct({ ...editingCatalogProduct, images: updatedImgs });
+                            }}
+                            className="absolute inset-0 bg-red-600/80 text-white font-bold text-[8px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                          >
+                            ลบ
+                          </button>
+                        </div>
+                      ))}
+                      <label className="w-12 h-12 rounded-xl border border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-gray-50 group">
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-red-500">+</span>
+                        <span className="text-[7px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              const files = Array.from(e.target.files);
+                              files.forEach(file => {
+                                compressImage(file as File, 600, 0.6).then(base64 => {
+                                  if (base64) {
+                                    const currentImgs = editingCatalogProduct.images || [];
+                                    setEditingCatalogProduct({ 
+                                      ...editingCatalogProduct, 
+                                      images: [...currentImgs, base64] 
+                                    });
+                                  }
+                                });
+                              });
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
                   </div>
 
