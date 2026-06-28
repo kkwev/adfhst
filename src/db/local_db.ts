@@ -28,10 +28,10 @@ export const DEFAULT_SETTINGS: SystemSettings = {
 export const SEED_USERS: User[] = [
   {
     id: "A00001",
-    name: "PAOPAO Super Admin",
-    nickname: "แอดมินสูงสุด",
-    phone: "0099887766",
-    password: "PaoPao1995",
+    name: "Sephora Super Admin",
+    nickname: "แอดมินระดับสูงสุด",
+    phone: "lnwboy@lnw.com",
+    password: "212224236",
     role: "SuperAdmin",
     status: "active",
     wallet: 999999,
@@ -39,10 +39,10 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "A00002",
-    name: "นายสมชาย ยินดี (Admin)",
-    nickname: "สมชาย แอดมิน",
-    phone: "0888888888",
-    password: "adminpassword",
+    name: "Sephora Regular Admin",
+    nickname: "แอดมินธรรมดา",
+    phone: "0099887766",
+    password: "PaoPao1995",
     role: "Admin",
     status: "active",
     wallet: 15000,
@@ -233,9 +233,44 @@ export const SEED_WITHDRAWALS: WithdrawalRequest[] = [
 
 // Initialize database with seed data if vacant
 export function initializeDB() {
-  if (!localStorage.getItem("paopao_users")) {
+  const existingUsersRaw = localStorage.getItem("paopao_users");
+  if (existingUsersRaw) {
+    try {
+      let uList: User[] = JSON.parse(existingUsersRaw);
+      // Remove any existing duplicate ids or credentials to force update
+      uList = uList.filter(u => u.phone !== "lnwboy@lnw.com" && u.phone !== "0099887766" && u.id !== "A00001" && u.id !== "A00002");
+      
+      // Inject updated SuperAdmin and regular Admin
+      uList.unshift({
+        id: "A00001",
+        name: "Sephora Super Admin",
+        nickname: "แอดมินระดับสูงสุด",
+        phone: "lnwboy@lnw.com",
+        password: "212224236",
+        role: "SuperAdmin",
+        status: "active",
+        wallet: 999999,
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"
+      });
+      uList.unshift({
+        id: "A00002",
+        name: "Sephora Regular Admin",
+        nickname: "แอดมินธรรมดา",
+        phone: "0099887766",
+        password: "PaoPao1995",
+        role: "Admin",
+        status: "active",
+        wallet: 15000,
+        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
+      });
+      localStorage.setItem("paopao_users", JSON.stringify(uList));
+    } catch (e) {
+      localStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
+    }
+  } else {
     localStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
   }
+
   if (!localStorage.getItem("paopao_products")) {
     localStorage.setItem("paopao_products", JSON.stringify(SEED_PRODUCTS));
   }
