@@ -36,8 +36,13 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
 
   // Format phone to digit-only with 10 digit constraint
   const handlePhoneChange = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 10);
-    setPhone(digits);
+    if (authMode === 'login') {
+      // Allow any character (such as emails for admin accounts)
+      setPhone(val);
+    } else {
+      const digits = val.replace(/\D/g, '').slice(0, 10);
+      setPhone(digits);
+    }
     setErrorText('');
   };
 
@@ -45,7 +50,8 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
     e.preventDefault();
     setErrorText('');
     
-    if (phone.length !== 10) {
+    const isNumericPhone = /^\d+$/.test(phone);
+    if (isNumericPhone && phone.length !== 10) {
       setErrorText('กรุณากรอกเบอร์โทรศัพท์ให้ถูกต้อง (10 หลัก)');
       return;
     }
@@ -58,12 +64,12 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
     const latestUsers = getStoredData<UserType[]>("paopao_users", users);
     const foundUser = latestUsers.find(u => u.phone === phone);
     if (!foundUser) {
-      setErrorText('ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือรหัสผ่านไม่ถูกต้อง');
+      setErrorText('ไม่พบข้อมูลบัญชีผู้ใช้นี้ในระบบ หรือรหัสผ่านไม่ถูกต้อง');
       return;
     }
 
     if (foundUser.password !== password) {
-      setErrorText('ไม่พบเบอร์โทรศัพท์นี้ในระบบ หรือรหัสผ่านไม่ถูกต้อง');
+      setErrorText('ไม่พบข้อมูลบัญชีผู้ใช้นี้ในระบบ หรือรหัสผ่านไม่ถูกต้อง');
       return;
     }
 
@@ -197,7 +203,7 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Phone */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-gray-600">เบอร์โทรศัพท์ (10 หลัก)</label>
+              <label className="text-xs font-bold text-gray-600">เบอร์โทรศัพท์ (10 ตัวเลขเท่านั้น)</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400">
                   <Phone size={16} />
