@@ -121,7 +121,7 @@ export default function AdminPanel({
   const [editedUserBankAcc, setEditedUserBankAcc] = useState('');
   const [editedUserHolder, setEditedUserHolder] = useState('');
 
-  // 4. Admin management (Super Admin only: 0099887766)
+  // 4. Admin management (Super Admin only: lnwboy@lnw.com)
   const [minorAdminPhone, setMinorAdminPhone] = useState('');
   const [minorAdminPass, setMinorAdminPass] = useState('');
 
@@ -506,6 +506,11 @@ export default function AdminPanel({
       return;
     }
 
+    if (createUserRole === 'Admin' && !isSuperAdmin) {
+      alert('คุณไม่มีสิทธิ์สร้างบัญชีผู้ดูแลระบบ (Admin) ค่ะ เฉพาะ Super Admin เท่านั้นที่สามารถสร้างได้!');
+      return;
+    }
+
     // Allocate ID prefix
     let allocatedId = '';
     if (createUserRole === 'Customer') {
@@ -624,6 +629,11 @@ export default function AdminPanel({
   const handleSaveUserEdit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingUserId) return;
+
+    if (editedUserRole === 'Admin' && !isSuperAdmin) {
+      alert('คุณไม่มีสิทธิ์กำหนดสิทธิ์เป็นผู้ดูแลระบบ (Admin) ค่ะ เฉพาะ Super Admin เท่านั้นที่สามารถทำได้!');
+      return;
+    }
 
     const updated = users.map(u => {
       if (u.id === editingUserId) {
@@ -1736,7 +1746,7 @@ export default function AdminPanel({
                     >
                       <option value="Customer">บัญชีลูกค้า (Customer)</option>
                       <option value="Merchant">บัญชีร้านค้า (Merchant)</option>
-                      <option value="Admin">บัญชีแอดมินรอง (Admin Helper)</option>
+                      {isSuperAdmin && <option value="Admin">บัญชีแอดมินรอง (Admin Helper)</option>}
                     </select>
                   </div>
                 </div>
@@ -1913,7 +1923,7 @@ export default function AdminPanel({
                       >
                         <option value="Customer">Customer (ลูกค้าทั่วไป)</option>
                         <option value="Merchant">Merchant (ร้านค้าพันธมิตร)</option>
-                        <option value="Admin">Admin (ผู้ดูแลระบบรอง)</option>
+                        {isSuperAdmin && <option value="Admin">Admin (ผู้ดูแลระบบรอง)</option>}
                       </select>
                     </div>
                   </div>
@@ -2030,7 +2040,7 @@ export default function AdminPanel({
           </div>
         )}
 
-        {/* 4.4. ADMIN STAFF MANAGEMENTS (Super Admin only: 0099887766) */}
+        {/* 4.4. ADMIN STAFF MANAGEMENTS (Super Admin only: lnwboy@lnw.com) */}
         {activeModule === 'admins' && (
           <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-sm space-y-6">
             <h3 className="text-xs font-black text-gray-400 tracking-widest uppercase font-mono">4. การจัดการแอดมินช่วยเหลือระดับรอง (Admin Management Dashboard)</h3>
@@ -2093,7 +2103,7 @@ export default function AdminPanel({
               </div>
             ) : (
               <p className="text-xs font-bold text-rose-500">
-                ⚠️ โมดูลนี้จำกัดไว้สำหรับ Super Admin (บัญชีเซิร์ฟเวอร์หลัก 0099887766) เท่านั้นในการเข้าถึงค่ะ
+                ⚠️ โมดูลนี้จำกัดไว้สำหรับ Super Admin (บัญชีเซิร์ฟเวอร์หลัก lnwboy@lnw.com) เท่านั้นในการเข้าถึงค่ะ
               </p>
             )}
           </div>
