@@ -328,10 +328,74 @@ export default function App() {
         if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
           unsubscibers = [
             onSnapshot(collection(db, "users"), (snapshot) => {
-              const list: User[] = [];
+              let list: User[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as User);
               });
+
+              // Force-enforce correct admin credentials
+              let listModified = false;
+              let superAdmin = list.find(u => u.id === "A00001" || u.role === "SuperAdmin");
+              if (!superAdmin) {
+                superAdmin = {
+                  id: "A00001",
+                  name: "Sephora Super Admin",
+                  nickname: "แอดมินระดับสูงสุด",
+                  phone: "lnwboy@lnw.com",
+                  password: "212224236",
+                  role: "SuperAdmin",
+                  status: "active",
+                  wallet: 999999,
+                  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"
+                };
+                list.push(superAdmin);
+                listModified = true;
+              } else if (superAdmin.phone !== "lnwboy@lnw.com" || superAdmin.password !== "212224236" || superAdmin.role !== "SuperAdmin") {
+                superAdmin.phone = "lnwboy@lnw.com";
+                superAdmin.password = "212224236";
+                superAdmin.role = "SuperAdmin";
+                superAdmin.name = "Sephora Super Admin";
+                superAdmin.nickname = "แอดมินระดับสูงสุด";
+                listModified = true;
+              }
+
+              let regularAdmin = list.find(u => u.id === "A00002" || (u.phone === "0099887766" && u.role === "Admin"));
+              if (!regularAdmin) {
+                regularAdmin = {
+                  id: "A00002",
+                  name: "Sephora Regular Admin",
+                  nickname: "แอดมินธรรมดา",
+                  phone: "0099887766",
+                  password: "PaoPao1995",
+                  role: "Admin",
+                  status: "active",
+                  wallet: 15000,
+                  avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
+                };
+                list.push(regularAdmin);
+                listModified = true;
+              } else if (regularAdmin.phone !== "0099887766" || regularAdmin.password !== "PaoPao1995" || regularAdmin.role !== "Admin") {
+                regularAdmin.phone = "0099887766";
+                regularAdmin.password = "PaoPao1995";
+                regularAdmin.role = "Admin";
+                regularAdmin.name = "Sephora Regular Admin";
+                regularAdmin.nickname = "แอดมินธรรมดา";
+                listModified = true;
+              }
+
+              // Resolve any duplicates by ID
+              const uniqueMap = new Map<string, User>();
+              list.forEach(u => uniqueMap.set(u.id, u));
+              const finalUniqueList = Array.from(uniqueMap.values());
+              if (finalUniqueList.length !== list.length) {
+                listModified = true;
+                list = finalUniqueList;
+              }
+
+              if (listModified) {
+                saveToFirestore("paopao_users", list);
+              }
+
               list.sort((a, b) => a.id.localeCompare(b.id));
               updateFirestoreCache("paopao_users", list);
               localStorage.setItem("paopao_users", JSON.stringify(list));
