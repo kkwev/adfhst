@@ -220,33 +220,34 @@ export default function AdminPanel({
   const handleAdminLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("โลโก้ขนาดใหญ่เกินไปค่ะ! (สูงสุดไม่เกิน 5MB)");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSettingsLogo(reader.result as string);
+      compressImage(file, 400, 0.7).then((base64String) => {
+        if (!base64String) {
+          alert("ไม่สามารถบีบอัดรูปภาพโลโก้ได้ค่ะ ❌");
+          return;
+        }
+        setSettingsLogo(base64String);
         alert("อัปโหลดและเปลี่ยนไฟล์โลโก้แบรนด์สำเร็จแล้วค่ะ! 🎨");
-      };
-      reader.readAsDataURL(file);
+      }).catch((err) => {
+        console.error("Logo compression error:", err);
+        alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
+      });
     }
   };
 
   const handleAdminBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert("สไลเดอร์แบนเนอร์ขนาดใหญ่เกินไปค่ะ! (สูงสุดไม่เกิน 5MB)");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
+      compressImage(file, 1200, 0.6).then((base64String) => {
+        if (!base64String) {
+          alert("ไม่สามารถบีบอัดรูปภาพแบนเนอร์ได้ค่ะ ❌");
+          return;
+        }
         setSettingsBanners([...settingsBanners, base64String]);
         alert("อัปโหลดบอร์ดภาพสไลเดอร์แบนเนอร์ (สัดส่วน 1200x450 pixels) จากไฟล์เครื่องสำเร็จจ้า! 🖼️");
-      };
-      reader.readAsDataURL(file);
+      }).catch((err) => {
+        console.error("Banner compression error:", err);
+        alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
+      });
     }
   };
 
