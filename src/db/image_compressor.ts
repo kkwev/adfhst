@@ -1,3 +1,6 @@
+import { storage } from "./firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
 /**
  * Compresses an image file (or base64 string) using HTML5 Canvas to fit within maxDimensions and converts to a lightweight JPEG base64 string.
  */
@@ -92,25 +95,41 @@ export function base64ToBlob(base64: string): Blob {
 }
 
 /**
- * Compresses a File, uploads it to a free, keyless cloud image hosting service, 
+ * Compresses a File, uploads it to Firebase Storage (or fallback cloud services),
  * and returns the public direct HTTPS URL. Falls back to a compressed base64 string on failure.
  */
 export async function uploadImageToCloud(file: File): Promise<string> {
   try {
-    // 1. First compress the image to 600px size with 0.6 quality to make it ultra-lightweight (around 20-50KB)
-    const compressedBase64 = await compressImage(file, 600, 0.6);
+    // 1. First compress the image to 800px size with 0.75 quality to make it lightweight but high-quality
+    const compressedBase64 = await compressImage(file, 800, 0.75);
     if (!compressedBase64 || !compressedBase64.startsWith("data:image/")) {
       return compressedBase64 || "";
     }
     
-    // 2. Convert to a lightweight Blob for faster upload
+    // 2. Convert to a lightweight Blob for upload
     const blob = base64ToBlob(compressedBase64);
     const filename = file.name || 'image.jpg';
+    const cleanFilename = filename.replace(/[^a-zA-Z0-9.]/g, "_");
     
-    // 3. Try to upload to pixeldrain.com (fast, stable, holds images up to 100 days)
+    // 3. Try uploading to official Firebase Storage first (permanent, fast, stable, uses Google CDN)
+    try {
+      const storageRef = ref(storage, `products/${Date.now()}_${cleanFilename}`);
+      const snapshot = await uploadBytes(storageRef, blob, {
+        contentType: "image/jpeg"
+      });
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      if (downloadUrl) {
+        console.log("Firebase Storage upload success:", downloadUrl);
+        return downloadUrl;
+      }
+    } catch (firebaseErr) {
+      console.warn("Firebase Storage upload failed, trying fallback servers...", firebaseErr);
+    }
+    
+    // 4. Fallback to pixeldrain.com (public, keyless fallback)
     try {
       const formData = new FormData();
-      formData.append('file', blob, filename);
+      formData.append('file', blob, cleanFilename);
       formData.append('anonymous', 'true');
       
       const response = await fetch('https://pixeldrain.com/api/file', {
@@ -125,13 +144,13 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         }
       }
     } catch (e) {
-      console.warn("Pixeldrain upload failed, trying tmpfiles.org...", e);
+      console.warn("Pixeldrain fallback upload failed, trying tmpfiles.org...", e);
     }
     
-    // 4. Try to upload to tmpfiles.org as a fallback (public, no key)
+    // 5. Fallback to tmpfiles.org as second fallback (public, no key)
     try {
       const formData = new FormData();
-      formData.append('file', blob, filename);
+      formData.append('file', blob, cleanFilename);
       
       const response = await fetch('https://tmpfiles.org/api/v1/upload', {
         method: 'POST',
@@ -145,14 +164,13 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         }
       }
     } catch (e) {
-      console.warn("Tmpfiles upload failed, returning base64...", e);
+      console.warn("Tmpfiles fallback upload failed, returning base64...", e);
     }
     
-    // 5. Fallback to base64 if both uploads fail
+    // 6. Last fallback to base64 if all cloud hosting options fail
     return compressedBase64;
   } catch (error) {
     console.error("Upload to cloud failed:", error);
-    // If anything fails, try to return a standard compressed base64 representation
     try {
       return await compressImage(file, 500, 0.5);
     } catch (fallbackError) {
