@@ -1,5 +1,6 @@
-import { storage } from "./firebase";
+import { storage, auth } from "./firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { signInAnonymously } from "firebase/auth";
 
 /**
  * Compresses an image file (or base64 string) using HTML5 Canvas to fit within maxDimensions and converts to a lightweight JPEG base64 string.
@@ -113,17 +114,36 @@ export async function uploadImageToCloud(file: File): Promise<string> {
     
     // 3. Try uploading to official Firebase Storage first (permanent, fast, stable, uses Google CDN)
     try {
+      // Ensure anonymous auth session is established if possible
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr) {
+          console.warn("Auth on-demand failed:", authErr);
+        }
+      }
+
       const storageRef = ref(storage, `products/${Date.now()}_${cleanFilename}`);
-      const snapshot = await uploadBytes(storageRef, blob, {
-        contentType: "image/jpeg"
-      });
-      const downloadUrl = await getDownloadURL(snapshot.ref);
+      
+      // Wrap upload and URL retrieval in a 4.5-second hard timeout
+      const uploadWithTimeout = async () => {
+        const snapshot = await uploadBytes(storageRef, blob, {
+          contentType: "image/jpeg"
+        });
+        return await getDownloadURL(snapshot.ref);
+      };
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Firebase Storage upload timed out")), 4500)
+      );
+
+      const downloadUrl = await Promise.race([uploadWithTimeout(), timeoutPromise]);
       if (downloadUrl) {
         console.log("Firebase Storage upload success:", downloadUrl);
         return downloadUrl;
       }
     } catch (firebaseErr) {
-      console.warn("Firebase Storage upload failed, trying fallback servers...", firebaseErr);
+      console.warn("Firebase Storage upload failed or timed out, trying fallback servers...", firebaseErr);
     }
     
     // 4. Fallback to pixeldrain.com (public, keyless fallback) with a fast 3.5s timeout
