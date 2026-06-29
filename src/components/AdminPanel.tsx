@@ -12,7 +12,7 @@ import {
   User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, DepositRequest, OnlineActionLog 
 } from '../types';
 import { logOnlineAction, getOnlineActionLogs } from '../db/local_db';
-import { compressImage } from '../db/image_compressor';
+import { compressImage, uploadImageToCloud } from '../db/image_compressor';
 
 interface AdminPanelProps {
   currentUser: User | null;
@@ -76,6 +76,10 @@ export default function AdminPanel({
   const [settingsGradEnd, setSettingsGradEnd] = useState(settings.themeGradientEnd);
   const [settingsBanners, setSettingsBanners] = useState<string[]>(settings.banners);
   const [newBannerUrl, setNewBannerUrl] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [isUploadingEditAdditionalImage, setIsUploadingEditAdditionalImage] = useState(false);
   const [settingsCategories, setSettingsCategories] = useState<{ key: string; label: string; icon: string }[]>(settings.customCategories || []);
   const [newCatKey, setNewCatKey] = useState('');
   const [newCatLabel, setNewCatLabel] = useState('');
@@ -217,37 +221,41 @@ export default function AdminPanel({
   }
 
   // --- Settings Module Action ---
-  const handleAdminLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdminLogoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 400, 0.7).then((base64String) => {
-        if (!base64String) {
-          alert("ไม่สามารถบีบอัดรูปภาพโลโก้ได้ค่ะ ❌");
-          return;
+      setIsUploadingLogo(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl) {
+          setSettingsLogo(cloudUrl);
+          alert("อัปโหลดและเปลี่ยนไฟล์โลโก้แบรนด์สำเร็จแล้วค่ะ! 🎨");
         }
-        setSettingsLogo(base64String);
-        alert("อัปโหลดและเปลี่ยนไฟล์โลโก้แบรนด์สำเร็จแล้วค่ะ! 🎨");
-      }).catch((err) => {
-        console.error("Logo compression error:", err);
-        alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
-      });
+      } catch (err) {
+        console.error("Logo upload error:", err);
+        alert("ไม่สามารถอัปโหลดรูปภาพได้ค่ะ ❌");
+      } finally {
+        setIsUploadingLogo(false);
+      }
     }
   };
 
-  const handleAdminBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdminBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 1200, 0.6).then((base64String) => {
-        if (!base64String) {
-          alert("ไม่สามารถบีบอัดรูปภาพแบนเนอร์ได้ค่ะ ❌");
-          return;
+      setIsUploadingBanner(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl) {
+          setSettingsBanners([...settingsBanners, cloudUrl]);
+          alert("อัปโหลดบอร์ดภาพสไลเดอร์แบนเนอร์ (สัดส่วน 1200x450 pixels) จากไฟล์เครื่องสำเร็จจ้า! 🖼️");
         }
-        setSettingsBanners([...settingsBanners, base64String]);
-        alert("อัปโหลดบอร์ดภาพสไลเดอร์แบนเนอร์ (สัดส่วน 1200x450 pixels) จากไฟล์เครื่องสำเร็จจ้า! 🖼️");
-      }).catch((err) => {
-        console.error("Banner compression error:", err);
-        alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
-      });
+      } catch (err) {
+        console.error("Banner upload error:", err);
+        alert("ไม่สามารถอัปโหลดรูปภาพได้ค่ะ ❌");
+      } finally {
+        setIsUploadingBanner(false);
+      }
     }
   };
 
@@ -1028,7 +1036,11 @@ export default function AdminPanel({
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-gray-600 block">โลโก้เว็บไซต์ (ดึงรูปจากเครื่อง หรือระบุ URL) 📷</label>
                   <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-50 p-2.5 border rounded-xl">
-                    {settingsLogo ? (
+                    {isUploadingLogo ? (
+                      <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded border shadow-xs">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF1E27]"></div>
+                      </div>
+                    ) : settingsLogo ? (
                       <img src={settingsLogo} alt="Logo" className="w-10 h-10 object-contain rounded bg-white p-1 border shadow-xs" />
                     ) : (
                       <div className="w-10 h-10 bg-red-100 text-[#FF1E27] flex items-center justify-center font-bold text-[10px] rounded">ไม่มีโลโก้</div>
@@ -1103,7 +1115,7 @@ export default function AdminPanel({
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                   {settingsBanners.map((bUrl, bIdx) => (
                     <div key={bIdx} className="bg-gray-50 border p-2.5 rounded-xl text-center space-y-2 relative group overflow-hidden">
-                      <img src={bUrl} alt="" className="aspect-[12/4.5] w-full object-cover rounded shadow-xs" />
+                      <img src={bUrl || undefined} alt="" className="aspect-[12/4.5] w-full object-cover rounded shadow-xs" />
                       <button
                         type="button"
                         onClick={() => handleRemoveBanner(bIdx)}
@@ -1121,12 +1133,19 @@ export default function AdminPanel({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-gray-50/50 p-3 rounded-xl border border-dashed">
                     <div className="space-y-1">
                       <span className="text-[9.5px] font-bold text-gray-500 block">เลือกรูปภาพจากเครื่อง / ไฟล์แกลเลอรี่:</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAdminBannerFileChange}
-                        className="text-xs text-none file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-gray-800 file:text-white hover:file:opacity-90 file:cursor-pointer"
-                      />
+                      {isUploadingBanner ? (
+                        <div className="flex items-center gap-2 py-1">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF1E27]"></div>
+                          <span className="text-[10px] text-gray-500 font-bold">กำลังอัปโหลดแบนเนอร์... ⏳</span>
+                        </div>
+                      ) : (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAdminBannerFileChange}
+                          className="text-xs text-none file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-gray-800 file:text-white hover:file:opacity-90 file:cursor-pointer"
+                        />
+                      )}
                     </div>
                     
                     <div className="space-y-1">
@@ -2132,7 +2151,7 @@ export default function AdminPanel({
                     const shopUser = users.find(u => u.id === p.merchantId);
                     return (
                       <div key={p.id} className="p-4 rounded-2xl border border-amber-200 bg-amber-50/20 flex gap-3 text-xs justify-between">
-                        <img src={p.image} className="w-16 h-16 object-cover rounded-xl bg-gray-100 shadow" referrerPolicy="no-referrer" />
+                        <img src={p.image || undefined} className="w-16 h-16 object-cover rounded-xl bg-gray-100 shadow" referrerPolicy="no-referrer" />
                         
                         <div className="flex-1 min-w-0 space-y-1">
                           <span className="text-[10px] bg-amber-150 text-orange-700 rounded px-1.5 py-0.5 font-bold inline-block font-mono">
@@ -2264,8 +2283,12 @@ export default function AdminPanel({
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-550 block">แก้ไขรูปภาพหลักสินค้า (อัพโหลดดึงรูปจากเครื่อง หรือระบุที่อยู่ URL) 📷</label>
                     <div className="flex flex-col sm:flex-row items-center gap-3.5 bg-white p-3.5 border rounded-2xl">
-                      {editingCatalogProduct.image ? (
-                        <img src={editingCatalogProduct.image} alt="Preview" className="w-14 h-14 object-cover rounded-xl border bg-gray-50 shadow-xs" referrerPolicy="no-referrer" />
+                      {isUploadingEditImage ? (
+                        <div className="w-14 h-14 rounded-xl border bg-gray-50 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-500"></div>
+                        </div>
+                      ) : editingCatalogProduct.image && editingCatalogProduct.image.trim() !== "" ? (
+                        <img src={editingCatalogProduct.image || undefined} alt="Preview" className="w-14 h-14 object-cover rounded-xl border bg-gray-50 shadow-xs" referrerPolicy="no-referrer" />
                       ) : (
                         <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center font-bold text-gray-400 text-[10px]">ไม่มีภาพ</div>
                       )}
@@ -2274,19 +2297,21 @@ export default function AdminPanel({
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                compressImage(file, 600, 0.6).then((base64String) => {
-                                  if (!base64String) {
-                                    alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
-                                    return;
+                                setIsUploadingEditImage(true);
+                                try {
+                                  const cloudUrl = await uploadImageToCloud(file);
+                                  if (cloudUrl) {
+                                    setEditingCatalogProduct({ ...editingCatalogProduct, image: cloudUrl });
                                   }
-                                  setEditingCatalogProduct({ ...editingCatalogProduct, image: base64String });
-                                }).catch((err) => {
-                                  console.error("Compression error:", err);
-                                  alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ ❌");
-                                });
+                                } catch (err) {
+                                  console.error("Admin catalog upload error:", err);
+                                  alert("ไม่สามารถอัปโหลดรูปภาพได้ค่ะ ❌");
+                                } finally {
+                                  setIsUploadingEditImage(false);
+                                }
                               }
                             }}
                             className="text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-gray-800 file:text-white hover:file:opacity-90 file:cursor-pointer"
@@ -2322,6 +2347,11 @@ export default function AdminPanel({
                           </button>
                         </div>
                       ))}
+                      {isUploadingEditAdditionalImage && (
+                        <div className="w-12 h-12 rounded-xl border border-gray-200 flex items-center justify-center bg-gray-50 shrink-0">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                        </div>
+                      )}
                       <label className="w-12 h-12 rounded-xl border border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-gray-50 group">
                         <span className="text-xs font-bold text-gray-400 group-hover:text-red-500">+</span>
                         <span className="text-[7px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
@@ -2329,20 +2359,27 @@ export default function AdminPanel({
                           type="file"
                           accept="image/*"
                           multiple
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             if (e.target.files) {
                               const files = Array.from(e.target.files);
-                              files.forEach(file => {
-                                compressImage(file as File, 600, 0.6).then(base64 => {
-                                  if (base64) {
-                                    const currentImgs = editingCatalogProduct.images || [];
-                                    setEditingCatalogProduct({ 
-                                      ...editingCatalogProduct, 
-                                      images: [...currentImgs, base64] 
-                                    });
-                                  }
-                                });
-                              });
+                              setIsUploadingEditAdditionalImage(true);
+                              try {
+                                  const urls = await Promise.all(
+                                    files.map(file => uploadImageToCloud(file as File))
+                                  );
+                                const validUrls = urls.filter(Boolean);
+                                if (validUrls.length > 0) {
+                                  const currentImgs = editingCatalogProduct.images || [];
+                                  setEditingCatalogProduct({ 
+                                    ...editingCatalogProduct, 
+                                    images: [...currentImgs, ...validUrls] 
+                                  });
+                                }
+                              } catch (err) {
+                                console.error("Admin catalog additional upload error:", err);
+                              } finally {
+                                setIsUploadingEditAdditionalImage(false);
+                              }
                             }
                           }}
                           className="hidden"
@@ -2384,7 +2421,7 @@ export default function AdminPanel({
                     ).map((p) => (
                       <tr key={p.id} className="hover:bg-gray-50/50">
                         <td className="p-3 flex items-center gap-2.5">
-                          <img src={p.image} className="w-9 h-9 rounded-lg object-cover bg-gray-50 border" referrerPolicy="no-referrer" />
+                          <img src={p.image || undefined} className="w-9 h-9 rounded-lg object-cover bg-gray-50 border" referrerPolicy="no-referrer" />
                           <div>
                             <span className="font-black text-gray-800 block truncate max-w-[150px]">{p.name}</span>
                             <span className="text-[9px] text-gray-400 font-mono font-bold">บาร์ ID: {p.id}</span>
@@ -2986,7 +3023,7 @@ export default function AdminPanel({
             
             <div className="flex-1 overflow-y-auto rounded-2xl border p-1 bg-gray-50 flex items-center justify-center">
               <img 
-                src={expandedSlipUrl} 
+                src={expandedSlipUrl || undefined} 
                 alt="Enlarged Slip" 
                 className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm"
                 referrerPolicy="no-referrer"
@@ -3043,10 +3080,10 @@ export default function AdminPanel({
                     <span className="text-[10px] text-gray-400 font-bold">ภาพหลักฐานสลิป:</span>
                     <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden border flex items-center justify-center">
                       <img 
-                        src={depositApprovalReq.slipImage} 
+                        src={depositApprovalReq.slipImage || undefined} 
                         alt="Slip thumbnail" 
                         className="max-h-full max-w-full object-contain cursor-zoom-in"
-                        onClick={() => setExpandedSlipUrl(depositApprovalReq.slipImage)}
+                        onClick={() => setExpandedSlipUrl(depositApprovalReq.slipImage || null)}
                         referrerPolicy="no-referrer"
                       />
                     </div>
@@ -3172,10 +3209,10 @@ export default function AdminPanel({
                     <span className="text-[10px] text-gray-400 font-bold">ภาพหลักฐานสลิป:</span>
                     <div className="w-full h-32 bg-gray-100 rounded-xl overflow-hidden border flex items-center justify-center">
                       <img 
-                        src={depositRejectionReq.slipImage} 
+                        src={depositRejectionReq.slipImage || undefined} 
                         alt="Slip thumbnail" 
                         className="max-h-full max-w-full object-contain cursor-zoom-in"
-                        onClick={() => setExpandedSlipUrl(depositRejectionReq.slipImage)}
+                        onClick={() => setExpandedSlipUrl(depositRejectionReq.slipImage || null)}
                         referrerPolicy="no-referrer"
                       />
                     </div>
