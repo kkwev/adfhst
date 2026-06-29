@@ -63,9 +63,9 @@ export default function Header({ settings, currentUser, onNavigate, cartCount, o
             onClick={() => onNavigate('profile')} 
             className="flex items-center gap-2 cursor-pointer bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full transition-colors border border-gray-100"
           >
-            {currentUser.avatar ? (
+            {currentUser.avatar && currentUser.avatar.trim() !== "" ? (
               <img 
-                src={currentUser.avatar} 
+                src={currentUser.avatar || undefined} 
                 alt={currentUser.name} 
                 className="w-6 h-6 rounded-full object-cover border border-red-200"
                 referrerPolicy="no-referrer"
