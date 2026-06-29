@@ -150,7 +150,7 @@ export default function OrdersTab({
                   {ord.items.map((it, idx) => (
                     <div key={idx} className="flex gap-3 py-2 text-xs">
                       <img 
-                        src={it.image} 
+                        src={it.image || undefined} 
                         alt={it.name} 
                         className="w-12 h-12 object-cover rounded-xl bg-gray-50 border shrink-0" 
                         referrerPolicy="no-referrer"
