@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, Plus, Minus, Megaphone, Edit3, PlusCircle, CheckCircle, Tag, EyeOff, Sparkles, X, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { Product, User, SystemSettings, SystemNotification, ProductOption } from '../types';
-import { compressImage } from '../db/image_compressor';
+import { compressImage, uploadImageToCloud } from '../db/image_compressor';
 
 interface HomeTabProps {
   products: Product[];
@@ -142,6 +142,10 @@ export default function HomeTab({
   const [cardQuantities, setCardQuantities] = useState<{ [prodId: string]: number }>({});
 
   // Add Product form state
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isUploadingAdditionalImage, setIsUploadingAdditionalImage] = useState(false);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [isUploadingEditAdditionalImage, setIsUploadingEditAdditionalImage] = useState(false);
   const [newProdName, setNewProdName] = useState('');
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdPrice, setNewProdPrice] = useState(0);
@@ -462,25 +466,37 @@ export default function HomeTab({
     setNewOptions(newOptions.filter((_, i) => i !== index));
   };
 
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 600, 0.6).then((base64String) => {
-        if (!base64String) {
-          alert("ไม่สามารถบีบอัดรูปภาพได้ค่ะ กรุณาลองเลือกรูปภาพอื่นนะคะ ❌");
+      if (isEdit) {
+        setIsUploadingEditImage(true);
+      } else {
+        setIsUploadingImage(true);
+      }
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (!cloudUrl) {
+          alert("เกิดข้อผิดพลาดในการประมวลผลรูปภาพค่ะ กรุณาลองเลือกรูปภาพอื่นนะคะ ❌");
           return;
         }
         if (isEdit) {
           if (editingProduct) {
-            setEditingProduct({ ...editingProduct, image: base64String });
+            setEditingProduct({ ...editingProduct, image: cloudUrl });
           }
         } else {
-          setNewProdImage(base64String);
+          setNewProdImage(cloudUrl);
         }
-      }).catch((err) => {
-        console.error("Compression error:", err);
-        alert("เกิดข้อผิดพลาดในการประมวลผลรูปภาพค่ะ ❌");
-      });
+      } catch (err) {
+        console.error("Cloud upload error:", err);
+        alert("เกิดข้อผิดพลาดในการอัปโหลดรูปภาพขึ้นคลาวด์ค่ะ ❌");
+      } finally {
+        if (isEdit) {
+          setIsUploadingEditImage(false);
+        } else {
+          setIsUploadingImage(false);
+        }
+      }
     }
   };
 
@@ -607,7 +623,7 @@ export default function HomeTab({
               }`}
             >
               <img 
-                src={url} 
+                src={url || undefined} 
                 alt={`Promotion Slide ${idx + 1}`} 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
@@ -860,7 +876,7 @@ export default function HomeTab({
                       title="คลิกเพื่อดูรายละเอียดสินค้าเพิ่มเติม"
                     >
                       <img 
-                        src={p.image} 
+                        src={p.image || undefined} 
                         alt={p.name} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         referrerPolicy="no-referrer"
@@ -1173,14 +1189,19 @@ export default function HomeTab({
                       onChange={(e) => handleImageFileChange(e, false)}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    {newProdImage ? (
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center gap-2 py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                        <span className="text-xs font-bold text-gray-500">กำลังอัปโหลดรูปภาพขึ้นคลาวด์ออนไลน์... ⏳</span>
+                      </div>
+                    ) : newProdImage ? (
                       <div className="flex flex-col items-center gap-2">
                         <img 
                           src={newProdImage} 
                           alt="Preview" 
                           className="w-20 h-20 object-cover rounded-xl shadow-md border border-gray-100" 
                         />
-                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ เลือกภาพสำเร็จ (ดึงข้อมูลไฟล์แล้ว)</span>
+                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ อัปโหลดสำเร็จ (รูปภาพออนไลน์พร้อมใช้งาน)</span>
                       </div>
                     ) : (
                       <div className="text-center space-y-1 py-1">
@@ -1225,6 +1246,11 @@ export default function HomeTab({
                       </button>
                     </div>
                   ))}
+                  {isUploadingAdditionalImage && (
+                    <div className="w-14 h-14 rounded-xl border border-gray-200 flex items-center justify-center bg-gray-50 shrink-0">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                    </div>
+                  )}
                   <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
                     <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
                     <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
@@ -1232,16 +1258,23 @@ export default function HomeTab({
                       type="file"
                       accept="image/*"
                       multiple
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.files) {
                           const files = Array.from(e.target.files);
-                          files.forEach(file => {
-                            compressImage(file as File, 600, 0.6).then(base64 => {
-                              if (base64) {
-                                setNewProdImages(prev => [...prev, base64]);
-                              }
-                            });
-                          });
+                          setIsUploadingAdditionalImage(true);
+                          try {
+                            const urls = await Promise.all(
+                              files.map(file => uploadImageToCloud(file as File))
+                            );
+                            const validUrls = urls.filter(Boolean);
+                            if (validUrls.length > 0) {
+                              setNewProdImages(prev => [...prev, ...validUrls]);
+                            }
+                          } catch (err) {
+                            console.error("Additional upload error:", err);
+                          } finally {
+                            setIsUploadingAdditionalImage(false);
+                          }
                         }
                       }}
                       className="hidden"
@@ -1437,14 +1470,19 @@ export default function HomeTab({
                       onChange={(e) => handleImageFileChange(e, true)}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    {editingProduct.image ? (
+                    {isUploadingEditImage ? (
+                      <div className="flex flex-col items-center gap-2 py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                        <span className="text-xs font-bold text-gray-500">กำลังอัปโหลดรูปภาพใหม่ขึ้นคลาวด์ออนไลน์... ⏳</span>
+                      </div>
+                    ) : editingProduct.image ? (
                       <div className="flex flex-col items-center gap-2">
                         <img 
                           src={editingProduct.image} 
                           alt="Preview" 
                           className="w-20 h-20 object-cover rounded-xl shadow-md border border-gray-100" 
                         />
-                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ เลือกภาพสำเร็จ (ดึงข้อมูลไฟล์แล้ว)</span>
+                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ อัปโหลดภาพใหม่สำเร็จ (รูปภาพออนไลน์พร้อมใช้งาน)</span>
                       </div>
                     ) : (
                       <div className="text-center space-y-1 py-1">
@@ -1491,6 +1529,11 @@ export default function HomeTab({
                       </button>
                     </div>
                   ))}
+                  {isUploadingEditAdditionalImage && (
+                    <div className="w-14 h-14 rounded-xl border border-gray-200 flex items-center justify-center bg-gray-50 shrink-0">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                    </div>
+                  )}
                   <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
                     <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
                     <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
@@ -1498,20 +1541,27 @@ export default function HomeTab({
                       type="file"
                       accept="image/*"
                       multiple
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.files) {
                           const files = Array.from(e.target.files);
-                          files.forEach(file => {
-                            compressImage(file as File, 600, 0.6).then(base64 => {
-                              if (base64) {
-                                const currentImgs = editingProduct.images || [];
-                                setEditingProduct({ 
-                                  ...editingProduct, 
-                                  images: [...currentImgs, base64] 
-                                });
-                              }
-                            });
-                          });
+                          setIsUploadingEditAdditionalImage(true);
+                          try {
+                            const urls = await Promise.all(
+                              files.map(file => uploadImageToCloud(file as File))
+                            );
+                            const validUrls = urls.filter(Boolean);
+                            if (validUrls.length > 0) {
+                              const currentImgs = editingProduct.images || [];
+                              setEditingProduct({ 
+                                ...editingProduct, 
+                                images: [...currentImgs, ...validUrls] 
+                              });
+                            }
+                          } catch (err) {
+                            console.error("Edit additional upload error:", err);
+                          } finally {
+                            setIsUploadingEditAdditionalImage(false);
+                          }
                         }
                       }}
                       className="hidden"
@@ -1915,7 +1965,7 @@ export default function HomeTab({
                 <div className="flex flex-col gap-3">
                   <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
                     <img 
-                      src={(selectedProductDetails.images && selectedProductDetails.images.length > 0) ? (selectedProductDetails.images[activeDetailImgIdx] || selectedProductDetails.image) : selectedProductDetails.image} 
+                      src={((selectedProductDetails.images && selectedProductDetails.images.length > 0) ? (selectedProductDetails.images[activeDetailImgIdx] || selectedProductDetails.image) : selectedProductDetails.image) || undefined} 
                       alt={selectedProductDetails.name} 
                       className="w-full h-full object-cover transition-all duration-300"
                       referrerPolicy="no-referrer"
@@ -1943,7 +1993,7 @@ export default function HomeTab({
                           }`}
                         >
                           <img 
-                            src={imgUrl} 
+                            src={imgUrl || undefined} 
                             alt={`Thumbnail ${index + 1}`} 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
