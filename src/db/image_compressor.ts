@@ -126,16 +126,21 @@ export async function uploadImageToCloud(file: File): Promise<string> {
       console.warn("Firebase Storage upload failed, trying fallback servers...", firebaseErr);
     }
     
-    // 4. Fallback to pixeldrain.com (public, keyless fallback)
+    // 4. Fallback to pixeldrain.com (public, keyless fallback) with a fast 3.5s timeout
     try {
       const formData = new FormData();
       formData.append('file', blob, cleanFilename);
       formData.append('anonymous', 'true');
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      
       const response = await fetch('https://pixeldrain.com/api/file', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -144,18 +149,23 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         }
       }
     } catch (e) {
-      console.warn("Pixeldrain fallback upload failed, trying tmpfiles.org...", e);
+      console.warn("Pixeldrain fallback upload failed or timed out, trying tmpfiles.org...", e);
     }
     
-    // 5. Fallback to tmpfiles.org as second fallback (public, no key)
+    // 5. Fallback to tmpfiles.org as second fallback (public, no key) with a fast 3.5s timeout
     try {
       const formData = new FormData();
       formData.append('file', blob, cleanFilename);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      
       const response = await fetch('https://tmpfiles.org/api/v1/upload', {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -164,7 +174,7 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         }
       }
     } catch (e) {
-      console.warn("Tmpfiles fallback upload failed, returning base64...", e);
+      console.warn("Tmpfiles fallback upload failed or timed out, returning base64...", e);
     }
     
     // 6. Last fallback to base64 if all cloud hosting options fail
