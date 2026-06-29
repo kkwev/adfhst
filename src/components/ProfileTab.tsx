@@ -10,7 +10,7 @@ import {
   LayoutGrid, Edit3, Plus, Minus
 } from 'lucide-react';
 import { User, Order, ChatMessage, SystemSettings, WithdrawalRequest, DepositRequest, Product } from '../types';
-import { compressImage } from '../db/image_compressor';
+import { compressImage, uploadImageToCloud } from '../db/image_compressor';
 
 interface ProfileTabProps {
   currentUser: User | null;
@@ -65,6 +65,10 @@ export default function ProfileTab({
   // Products state for merchant dashboard editing
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [isUploadingEditAdditionalImage, setIsUploadingEditAdditionalImage] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isUploadingSlip, setIsUploadingSlip] = useState(false);
 
   // Dynamic categories helper for product editing in profile tab
   const dynamicCategories = React.useMemo(() => {
@@ -108,16 +112,21 @@ export default function ProfileTab({
   }, [settings.customCategories, products]);
 
   // Handle image file selection for editing a product in Profile Tab
-  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 600, 0.6).then((base64String) => {
-        if (base64String && editingProduct) {
-          setEditingProduct({ ...editingProduct, image: base64String });
+      setIsUploadingEditImage(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl && editingProduct) {
+          setEditingProduct({ ...editingProduct, image: cloudUrl });
         }
-      }).catch(() => {
-        alert("ไม่สามารถอ่านหรือบีบอัดไฟล์รูปภาพได้ค่ะ ❌");
-      });
+      } catch (err) {
+        console.error("ProfileTab upload error:", err);
+        alert("ไม่สามารถอัปโหลดหรือบีบอัดไฟล์รูปภาพได้ค่ะ ❌");
+      } finally {
+        setIsUploadingEditImage(false);
+      }
     }
   };
 
@@ -301,16 +310,21 @@ export default function ProfileTab({
   const totalPages = Math.ceil(allTxs.length / itemsPerPage);
   const currentTxs = allTxs.slice((txPage - 1) * itemsPerPage, txPage * itemsPerPage);
 
-  const handleFileChangeForDeposit = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChangeForDeposit = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 500, 0.6).then((compressed) => {
-        if (compressed) {
-          setDepositSlipBase64(compressed);
+      setIsUploadingSlip(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl) {
+          setDepositSlipBase64(cloudUrl);
         }
-      }).catch(() => {
+      } catch (err) {
+        console.error("Deposit slip upload error:", err);
         alert("ไม่สามารถอัปโหลดหรือบีบอัดรูปภาพสลิปได้ค่ะ ❌");
-      });
+      } finally {
+        setIsUploadingSlip(false);
+      }
     }
   };
 
@@ -409,17 +423,22 @@ export default function ProfileTab({
     setProfileView('index');
   };
 
-  const handleFileChangeForAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChangeForAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      compressImage(file, 200, 0.6).then((compressed) => {
-        if (compressed) {
-          onUpdateAvatar(compressed);
+      setIsUploadingAvatar(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl) {
+          onUpdateAvatar(cloudUrl);
           alert('อัปโหลดและเปลี่ยนภาพโปรไฟล์เรียบร้อยแล้วค่ะ');
         }
-      }).catch(() => {
+      } catch (err) {
+        console.error("Avatar upload error:", err);
         alert("ไม่สามารถอัปโหลดหรือบีบอัดภาพโปรไฟล์ได้ค่ะ ❌");
-      });
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
   };
 
@@ -436,9 +455,13 @@ export default function ProfileTab({
 
             {/* Avatar input clickable */}
             <div className="relative group cursor-pointer">
-              {currentUser.avatar ? (
+              {isUploadingAvatar ? (
+                <div className="w-20 h-20 rounded-full border-4 border-white shadow-md bg-gray-50 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
+                </div>
+              ) : currentUser.avatar && currentUser.avatar.trim() !== "" ? (
                 <img 
-                  src={currentUser.avatar} 
+                  src={currentUser.avatar || undefined} 
                   alt={currentUser.name} 
                   className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md cursor-pointer"
                   referrerPolicy="no-referrer"
@@ -449,15 +472,17 @@ export default function ProfileTab({
                 </div>
               )}
               {/* Click overlay */}
-              <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                <Image size={16} className="text-white" />
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleFileChangeForAvatar} 
-                />
-              </label>
+              {!isUploadingAvatar && (
+                <label className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Image size={16} className="text-white" />
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleFileChangeForAvatar} 
+                  />
+                </label>
+              )}
             </div>
 
             {/* Identities details */}
@@ -773,9 +798,9 @@ export default function ProfileTab({
                         : 'bg-[#FF1E27] text-white'
                     }`} style={!isAdmin ? { background: themePrimary } : undefined}>
                       <p className="font-semibold leading-relaxed break-all white-space-pre">{chat.message}</p>
-                      {chat.image && (
+                      {chat.image && chat.image.trim() !== "" && (
                         <img 
-                          src={chat.image} 
+                          src={chat.image || undefined} 
                           alt="Attachment" 
                           className="max-w-[120px] rounded-lg mt-1 border"
                           referrerPolicy="no-referrer"
@@ -1013,7 +1038,7 @@ export default function ProfileTab({
                       {ord.items.map((it, idx) => (
                         <div key={idx} className="flex gap-2.5 items-center">
                           <img 
-                            src={it.image} 
+                            src={it.image || undefined} 
                             alt={it.name} 
                             className="w-10 h-10 rounded object-cover border" 
                             referrerPolicy="no-referrer"
@@ -1123,7 +1148,7 @@ export default function ProfileTab({
                       {/* Product Image */}
                       <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 border shrink-0 flex items-center justify-center relative">
                         <img 
-                          src={p.image} 
+                          src={p.image || undefined} 
                           alt={p.name} 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
@@ -1330,7 +1355,12 @@ export default function ProfileTab({
                     onChange={handleFileChangeForDeposit}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
-                  {depositSlipBase64 ? (
+                  {isUploadingSlip ? (
+                    <div className="flex flex-col items-center gap-2 py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                      <span className="text-xs font-bold text-gray-500">กำลังอัปโหลดรูปภาพสลิปขึ้นคลาวด์ออนไลน์... ⏳</span>
+                    </div>
+                  ) : depositSlipBase64 ? (
                     <div className="text-center space-y-2 pointer-events-none">
                       <div className="flex justify-center">
                         <img 
@@ -1339,7 +1369,7 @@ export default function ProfileTab({
                           className="max-h-28 max-w-full rounded-xl object-contain border bg-white p-1"
                         />
                       </div>
-                      <p className="text-[9px] text-teal-600 font-extrabold">✓ สแกนแนบภาพสลิปเรียบร้อยแล้ว (กดซ้ำเพื่อเปลี่ยนภาพ)</p>
+                      <p className="text-[9px] text-teal-600 font-extrabold">✓ อัปโหลดภาพสลิปออนไลน์เรียบร้อยแล้ว (กดซ้ำเพื่อเปลี่ยนภาพ)</p>
                     </div>
                   ) : (
                     <div className="text-center pointer-events-none space-y-1 py-1.5">
@@ -1498,14 +1528,19 @@ export default function ProfileTab({
                       onChange={handleImageFileChange}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     />
-                    {editingProduct.image ? (
+                    {isUploadingEditImage ? (
+                      <div className="flex flex-col items-center gap-2 py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
+                        <span className="text-xs font-bold text-gray-500">กำลังอัปโหลดรูปภาพใหม่ขึ้นคลาวด์ออนไลน์... ⏳</span>
+                      </div>
+                    ) : editingProduct.image && editingProduct.image.trim() !== "" ? (
                       <div className="flex flex-col items-center gap-2">
                         <img 
-                          src={editingProduct.image} 
+                          src={editingProduct.image || undefined} 
                           alt="Preview" 
                           className="w-20 h-20 object-cover rounded-xl shadow-md border border-gray-100" 
                         />
-                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ เลือกภาพสำเร็จ (ดึงข้อมูลไฟล์แล้ว)</span>
+                        <span className="text-[10px] text-emerald-600 font-bold block bg-emerald-55 px-2 py-0.5 rounded-full">✓ อัปโหลดภาพใหม่สำเร็จ (รูปภาพออนไลน์พร้อมใช้งาน)</span>
                       </div>
                     ) : (
                       <div className="text-center space-y-1 py-1">
@@ -1539,7 +1574,7 @@ export default function ProfileTab({
                 <div className="flex flex-wrap gap-2">
                   {(editingProduct.images || []).map((imgUrl, idx) => (
                     <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 group bg-white shadow-sm shrink-0">
-                      <img src={imgUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <img src={imgUrl || undefined} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       <button
                         type="button"
                         onClick={() => {
@@ -1552,6 +1587,11 @@ export default function ProfileTab({
                       </button>
                     </div>
                   ))}
+                  {isUploadingEditAdditionalImage && (
+                    <div className="w-14 h-14 rounded-xl border border-gray-200 flex items-center justify-center bg-gray-50 shrink-0">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                    </div>
+                  )}
                   <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-300 hover:border-red-400 flex flex-col items-center justify-center cursor-pointer transition-colors shrink-0 bg-white group">
                     <span className="text-sm font-bold text-gray-400 group-hover:text-red-500">+</span>
                     <span className="text-[8px] text-gray-400 font-bold group-hover:text-red-500">เพิ่มรูป</span>
@@ -1559,20 +1599,27 @@ export default function ProfileTab({
                       type="file"
                       accept="image/*"
                       multiple
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.files) {
                           const files = Array.from(e.target.files);
-                          files.forEach(file => {
-                            compressImage(file as File, 600, 0.6).then(base64 => {
-                              if (base64) {
-                                const currentImgs = editingProduct.images || [];
-                                setEditingProduct({ 
-                                  ...editingProduct, 
-                                  images: [...currentImgs, base64] 
-                                });
-                              }
-                            });
-                          });
+                          setIsUploadingEditAdditionalImage(true);
+                          try {
+                            const urls = await Promise.all(
+                              files.map(file => uploadImageToCloud(file as File))
+                            );
+                            const validUrls = urls.filter(Boolean);
+                            if (validUrls.length > 0) {
+                              const currentImgs = editingProduct.images || [];
+                              setEditingProduct({ 
+                                ...editingProduct, 
+                                images: [...currentImgs, ...validUrls] 
+                              });
+                            }
+                          } catch (err) {
+                            console.error("Edit additional upload error:", err);
+                          } finally {
+                            setIsUploadingEditAdditionalImage(false);
+                          }
                         }
                       }}
                       className="hidden"
