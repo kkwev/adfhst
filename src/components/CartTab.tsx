@@ -302,7 +302,7 @@ export default function CartTab({
 
                         {/* Thumbnail image */}
                         <img 
-                          src={item.product.image} 
+                          src={item.product.image || undefined} 
                           alt={item.product.name} 
                           className="w-16 h-16 rounded-xl object-cover bg-gray-150 shrink-0 border border-gray-100"
                           referrerPolicy="no-referrer"
