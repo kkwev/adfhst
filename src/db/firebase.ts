@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 const firebaseConfig = {
   projectId: "gen-lang-client-0631640025",
@@ -14,3 +15,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
 export const storage = getStorage(app);
+export const auth = getAuth(app);
+
+// Sign in anonymously to authenticate the session for Firebase Storage and Firestore rules
+signInAnonymously(auth)
+  .then(() => {
+    console.log("Firebase Auth: Signed in anonymously successfully.");
+  })
+  .catch((err) => {
+    console.warn("Firebase Auth: Anonymous sign-in failed (make sure Anonymous Auth is enabled in Firebase Console):", err);
+  });
