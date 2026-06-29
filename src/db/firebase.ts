@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   projectId: "gen-lang-client-0631640025",
@@ -12,3 +13,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
+export const storage = getStorage(app);
