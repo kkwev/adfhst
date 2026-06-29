@@ -6,24 +6,9 @@ import './index.css';
 // Monkey-patch localStorage.setItem to gracefully handle and recover from QuotaExceededError (5MB browser limit)
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(key, value) {
-  let processedValue = value;
-  
-  // Compressing any large base64 strings in values BEFORE attempting to write
-  if (typeof processedValue === "string" && (processedValue.includes("data:image/") || processedValue.includes("data:application/"))) {
-    try {
-      processedValue = processedValue.replace(/"data:(image|application)\/[^"]+"/g, (match) => {
-        if (match.length > 30000) {
-          return '"https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=400"';
-        }
-        return match;
-      });
-    } catch (err) {
-      console.warn("Base64 regex stripping failed in localStorage:", err);
-    }
-  }
-
   try {
-    originalSetItem.call(localStorage, key, processedValue);
+    // Try to write the raw unmodified value first to preserve custom uploaded images perfectly!
+    originalSetItem.call(localStorage, key, value);
   } catch (e: any) {
     const isQuotaError = 
       e instanceof DOMException && (
@@ -52,6 +37,22 @@ localStorage.setItem = function(key, value) {
           try {
             originalSetItem.call(localStorage, k, JSON.stringify([]));
           } catch (clearErr) {}
+        }
+
+        let processedValue = value;
+
+        // Compress or strip base64 images to a fallback cosmetics image URL as a last resort
+        if (typeof processedValue === "string" && (processedValue.includes("data:image/") || processedValue.includes("data:application/"))) {
+          try {
+            processedValue = processedValue.replace(/"data:(image|application)\/[^"]+"/g, (match) => {
+              if (match.length > 20000) {
+                return '"https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=400"';
+              }
+              return match;
+            });
+          } catch (err) {
+            console.warn("Base64 regex stripping failed in localStorage:", err);
+          }
         }
 
         // Also compress the settings value if we are trying to save it
