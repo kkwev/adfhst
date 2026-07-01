@@ -177,7 +177,16 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
         
         {/* Branding Logo */}
         <div className="flex flex-col items-center text-center mb-8">
-          <SephoraLogo className="w-20 h-20 mb-4" />
+          {settings.siteIcon || settings.siteLogo ? (
+            <img 
+              src={settings.siteIcon || settings.siteLogo} 
+              alt="Website Icon" 
+              className="w-20 h-20 object-contain rounded-2xl bg-black border border-neutral-800 shadow-md p-2 mb-4"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <SephoraLogo className="w-20 h-20 mb-4" />
+          )}
           <h1 className="text-3xl font-black mt-2 leading-none tracking-tight text-gray-900">
             {settings.siteName || 'Sephora Thailand'}
           </h1>
