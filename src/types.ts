@@ -113,6 +113,7 @@ export interface WithdrawalRequest {
 export interface SystemSettings {
   siteName: string;
   siteLogo: string; // Name of logo SVG or base64
+  siteIcon?: string; // Icon of website (favicon)
   themeColor: string; // Neon red primary
   themeGradientEnd: string; // Light neon coral gradient
   banners: string[]; // Promotion images
