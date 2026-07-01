@@ -595,10 +595,25 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Dynamic document title matching the store name
+  // Dynamic document title and favicon matching the store config
   useEffect(() => {
     document.title = settings.siteName || "Sephora Thailand";
-  }, [settings.siteName]);
+    
+    const iconUrl = settings.siteIcon || settings.siteLogo || "/favicon.ico";
+    if (iconUrl) {
+      const links = document.querySelectorAll("link[rel*='icon']");
+      if (links.length > 0) {
+        links.forEach((link) => {
+          (link as HTMLLinkElement).href = iconUrl;
+        });
+      } else {
+        const link = document.createElement("link");
+        link.rel = "shortcut icon";
+        link.href = iconUrl;
+        document.head.appendChild(link);
+      }
+    }
+  }, [settings.siteName, settings.siteIcon, settings.siteLogo]);
 
   // --- CART MANAGEMENT ---
   const handleAddToCart = (product: Product, quantity: number, selectedOptions: { [category: string]: string }) => {
@@ -1342,9 +1357,6 @@ export default function App() {
         onNavigate={(tab) => setActiveTab(tab)} 
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         notificationCount={currentUser ? notifications.filter(notif => {
-          if (notif.id === 'N00002' || notif.title === 'ประกาศปิดปรับปรุงระบบเซิร์ฟเวอร์ย่อยชั่วคราว') {
-            return false;
-          }
           const isRelevant = notif.userId === 'all' || notif.userId === currentUser.id;
           if (!isRelevant) return false;
           const readBy = notif.readBy || [];
