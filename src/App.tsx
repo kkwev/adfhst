@@ -599,19 +599,37 @@ export default function App() {
   useEffect(() => {
     document.title = settings.siteName || "Sephora Thailand";
     
-    const iconUrl = settings.siteIcon || settings.siteLogo || "/favicon.ico";
+    const iconUrl = settings.siteIcon || settings.siteLogo;
     if (iconUrl) {
-      const links = document.querySelectorAll("link[rel*='icon']");
-      if (links.length > 0) {
-        links.forEach((link) => {
-          (link as HTMLLinkElement).href = iconUrl;
-        });
-      } else {
-        const link = document.createElement("link");
-        link.rel = "shortcut icon";
-        link.href = iconUrl;
-        document.head.appendChild(link);
-      }
+      // Find and remove any existing links that handle icons to avoid duplicates/stale links
+      const existingIcons = document.querySelectorAll("link[rel*='icon'], link[rel*='shortcut'], link[rel*='apple-touch']");
+      existingIcons.forEach(el => el.parentNode?.removeChild(el));
+
+      // Append cache buster if it is a regular URL (not base64 data URL)
+      const cleanUrl = iconUrl.startsWith("data:") 
+        ? iconUrl 
+        : `${iconUrl}${iconUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+
+      // Create main favicon link
+      const link32 = document.createElement("link");
+      link32.rel = "icon";
+      link32.type = "image/png";
+      link32.sizes = "32x32";
+      link32.href = cleanUrl;
+      document.head.appendChild(link32);
+
+      // Create shortcut icon link
+      const linkShortcut = document.createElement("link");
+      linkShortcut.rel = "shortcut icon";
+      linkShortcut.href = cleanUrl;
+      document.head.appendChild(linkShortcut);
+
+      // Create apple touch icon
+      const linkApple = document.createElement("link");
+      linkApple.rel = "apple-touch-icon";
+      linkApple.sizes = "180x180";
+      linkApple.href = cleanUrl;
+      document.head.appendChild(linkApple);
     }
   }, [settings.siteName, settings.siteIcon, settings.siteLogo]);
 
