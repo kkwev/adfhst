@@ -197,15 +197,20 @@ export default function AdminPanel({
   }, [onManualRefresh]);
 
   // Sync state values when settings loads
+  const prevSettingsRef = React.useRef(settings);
+
   useEffect(() => {
-    setSettingsName(settings.siteName);
-    setSettingsLogo(settings.siteLogo);
-    setSettingsIcon(settings.siteIcon || '');
-    setSettingsColor(settings.themeColor);
-    setSettingsGradEnd(settings.themeGradientEnd);
-    setSettingsBanners(settings.banners);
-    setSettingsCategories(settings.customCategories || []);
-  }, [settings]);
+    if (activeModule !== 'settings' && JSON.stringify(prevSettingsRef.current) !== JSON.stringify(settings)) {
+      setSettingsName(settings.siteName);
+      setSettingsLogo(settings.siteLogo);
+      setSettingsIcon(settings.siteIcon || '');
+      setSettingsColor(settings.themeColor);
+      setSettingsGradEnd(settings.themeGradientEnd);
+      setSettingsBanners(settings.banners);
+      setSettingsCategories(settings.customCategories || []);
+      prevSettingsRef.current = settings;
+    }
+  }, [settings, activeModule]);
 
   // Access constraints audit: ONLY Admins/SuperAdmins can enter
   const isAuthorized = currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin');
