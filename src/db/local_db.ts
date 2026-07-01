@@ -9,6 +9,7 @@ import { User, Product, Order, ChatMessage, SystemNotification, WithdrawalReques
 export const DEFAULT_SETTINGS: SystemSettings = {
   siteName: "Sephora Thailand",
   siteLogo: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sephora_logo.svg/600px-Sephora_logo.svg.png",
+  siteIcon: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sephora_logo.svg/600px-Sephora_logo.svg.png",
   themeColor: "#000000", // Sephora black luxury theme color
   themeGradientEnd: "#1A1A1A", // Dark luxury gradient end
   banners: [
