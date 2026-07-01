@@ -30,9 +30,6 @@ export default function NotificationsTab({
   // Filter notifications relevant to current user: either target "all" or specific user's ID
   const relevantList = notifications
     .filter(notif => {
-      if (notif.id === 'N00002' || notif.title === 'ประกาศปิดปรับปรุงระบบเซิร์ฟเวอร์ย่อยชั่วคราว') {
-        return false;
-      }
       return notif.userId === 'all' || (currentUser && notif.userId === currentUser.id);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
