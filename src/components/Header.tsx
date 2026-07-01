@@ -29,7 +29,16 @@ export default function Header({ settings, currentUser, onNavigate, cartCount, o
         onClick={() => onNavigate('home')} 
         className="flex items-center gap-2.5 cursor-pointer group shrink-0"
       >
-        <SephoraLogo className="w-11 h-11" />
+        {settings.siteIcon || settings.siteLogo ? (
+          <img 
+            src={settings.siteIcon || settings.siteLogo} 
+            alt="Website Icon" 
+            className="w-11 h-11 object-contain rounded-xl bg-black border border-neutral-800 shadow-sm p-1 transition-transform group-hover:scale-105"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <SephoraLogo className="w-11 h-11" />
+        )}
         <div className="flex flex-col">
           <span 
             id="brand-name"
