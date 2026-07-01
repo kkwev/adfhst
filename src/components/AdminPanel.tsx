@@ -72,11 +72,13 @@ export default function AdminPanel({
   // 1. Settings state
   const [settingsName, setSettingsName] = useState(settings.siteName);
   const [settingsLogo, setSettingsLogo] = useState(settings.siteLogo);
+  const [settingsIcon, setSettingsIcon] = useState(settings.siteIcon || '');
   const [settingsColor, setSettingsColor] = useState(settings.themeColor);
   const [settingsGradEnd, setSettingsGradEnd] = useState(settings.themeGradientEnd);
   const [settingsBanners, setSettingsBanners] = useState<string[]>(settings.banners);
   const [newBannerUrl, setNewBannerUrl] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false);
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [isUploadingEditAdditionalImage, setIsUploadingEditAdditionalImage] = useState(false);
@@ -198,6 +200,7 @@ export default function AdminPanel({
   useEffect(() => {
     setSettingsName(settings.siteName);
     setSettingsLogo(settings.siteLogo);
+    setSettingsIcon(settings.siteIcon || '');
     setSettingsColor(settings.themeColor);
     setSettingsGradEnd(settings.themeGradientEnd);
     setSettingsBanners(settings.banners);
@@ -240,6 +243,25 @@ export default function AdminPanel({
     }
   };
 
+  const handleAdminIconFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsUploadingIcon(true);
+      try {
+        const cloudUrl = await uploadImageToCloud(file);
+        if (cloudUrl) {
+          setSettingsIcon(cloudUrl);
+          alert("อัปโหลดและเปลี่ยนไฟล์ไอคอนเว็บไซต์สำเร็จแล้วค่ะ! 🌐");
+        }
+      } catch (err) {
+        console.error("Icon upload error:", err);
+        alert("ไม่สามารถอัปโหลดรูปภาพได้ค่ะ ❌");
+      } finally {
+        setIsUploadingIcon(false);
+      }
+    }
+  };
+
   const handleAdminBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -264,6 +286,7 @@ export default function AdminPanel({
     onUpdateSettings({
       siteName: settingsName,
       siteLogo: settingsLogo,
+      siteIcon: settingsIcon,
       themeColor: settingsColor,
       themeGradientEnd: settingsGradEnd,
       banners: settingsBanners,
@@ -1022,7 +1045,7 @@ export default function AdminPanel({
             <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest font-mono">1. การตั้งค่าสไตล์เว็บบอร์ด (System Settings UI/UX)</h3>
             
             <form onSubmit={handleSaveSettings} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[11px] font-bold text-gray-600 block">ชื่อชื่อเว็บไซต์ทางการ (Site Display Name)</label>
                   <input
@@ -1059,6 +1082,38 @@ export default function AdminPanel({
                           className="bg-white border rounded-lg px-2 py-1 text-[10px] w-full font-bold focus:outline-none"
                           value={settingsLogo}
                           onChange={(e) => setSettingsLogo(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-600 block">ไอคอนเว็บไซต์ / Favicon (จากเครื่อง หรือระบุ URL) 🌐</label>
+                  <div className="flex flex-col sm:flex-row items-center gap-3 bg-gray-50 p-2.5 border rounded-xl">
+                    {isUploadingIcon ? (
+                      <div className="w-10 h-10 bg-gray-100 flex items-center justify-center rounded border shadow-xs">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#FF1E27]"></div>
+                      </div>
+                    ) : settingsIcon ? (
+                      <img src={settingsIcon} alt="Icon" className="w-10 h-10 object-contain rounded bg-white p-1 border shadow-xs" />
+                    ) : (
+                      <div className="w-10 h-10 bg-amber-100 text-amber-600 flex items-center justify-center font-bold text-[10px] rounded">ไม่มีไอคอน</div>
+                    )}
+                    <div className="flex-1 space-y-1 w-full">
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAdminIconFileChange}
+                          className="text-[10px] text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-[#FF1E27] file:text-white hover:file:opacity-90 file:cursor-pointer"
+                        />
+                        <input
+                          type="text"
+                          placeholder="หรือป้อน URL ไอคอนเว็บ..."
+                          className="bg-white border rounded-lg px-2 py-1 text-[10px] w-full font-bold focus:outline-none"
+                          value={settingsIcon}
+                          onChange={(e) => setSettingsIcon(e.target.value)}
                         />
                       </div>
                     </div>
