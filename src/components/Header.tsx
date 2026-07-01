@@ -33,7 +33,7 @@ export default function Header({ settings, currentUser, onNavigate, cartCount, o
           <img 
             src={settings.siteIcon || settings.siteLogo} 
             alt="Website Icon" 
-            className="w-11 h-11 object-contain rounded-xl bg-black border border-neutral-800 shadow-sm p-1 transition-transform group-hover:scale-105"
+            className="w-11 h-11 object-contain rounded-xl bg-white border border-gray-150 shadow-sm p-0.5 transition-transform group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
         ) : (
