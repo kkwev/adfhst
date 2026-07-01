@@ -181,7 +181,7 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
             <img 
               src={settings.siteIcon || settings.siteLogo} 
               alt="Website Icon" 
-              className="w-20 h-20 object-contain rounded-2xl bg-black border border-neutral-800 shadow-md p-2 mb-4"
+              className="w-20 h-20 object-contain rounded-2xl bg-white border border-gray-150 shadow-md p-1 mb-4"
               referrerPolicy="no-referrer"
             />
           ) : (
