@@ -258,13 +258,6 @@ export async function saveToFirestore(key: string, data: any) {
       }
     }
 
-    // 2. Perform garbage collection (delete only removed documents)
-    for (const cachedItem of cached) {
-      if (cachedItem && cachedItem.id && !currentMap.has(cachedItem.id)) {
-        await deleteDoc(doc(db, collectionName, cachedItem.id));
-      }
-    }
-
     // Keep cache up to date
     dbStateCache[key] = JSON.parse(JSON.stringify(data));
   } catch (error) {
