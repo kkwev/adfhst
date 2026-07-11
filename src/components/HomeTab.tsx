@@ -500,53 +500,104 @@ export default function HomeTab({
     }
   };
 
-  const handleFormPaste = async (e: React.ClipboardEvent<any>, isEdit: boolean) => {
+  const handleMainImagePaste = async (e: React.ClipboardEvent<any>, isEdit: boolean) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     
-    let hasImage = false;
+    let file: File | null = null;
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
-        hasImage = true;
+        file = items[i].getAsFile();
         break;
       }
     }
     
-    if (hasImage) {
+    if (file) {
       e.preventDefault();
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          const file = items[i].getAsFile();
-          if (file) {
-            if (isEdit) {
-              setIsUploadingEditImage(true);
-              try {
-                const cloudUrl = await uploadImageToCloud(file);
-                if (cloudUrl) {
-                  setEditingProduct(prev => prev ? { ...prev, image: cloudUrl } : null);
-                }
-              } catch (err) {
-                console.error("Paste upload error:", err);
-                alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
-              } finally {
-                setIsUploadingEditImage(false);
-              }
-            } else {
-              setIsUploadingImage(true);
-              try {
-                const cloudUrl = await uploadImageToCloud(file);
-                if (cloudUrl) {
-                  setNewProdImage(cloudUrl);
-                }
-              } catch (err) {
-                console.error("Paste upload error:", err);
-                alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
-              } finally {
-                setIsUploadingImage(false);
-              }
-            }
-            break;
+      if (isEdit) {
+        setIsUploadingEditImage(true);
+        try {
+          const cloudUrl = await uploadImageToCloud(file);
+          if (cloudUrl) {
+            setEditingProduct(prev => prev ? { ...prev, image: cloudUrl } : null);
           }
+        } catch (err) {
+          console.error("Paste upload error:", err);
+          alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
+        } finally {
+          setIsUploadingEditImage(false);
+        }
+      } else {
+        setIsUploadingImage(true);
+        try {
+          const cloudUrl = await uploadImageToCloud(file);
+          if (cloudUrl) {
+            setNewProdImage(cloudUrl);
+          }
+        } catch (err) {
+          console.error("Paste upload error:", err);
+          alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+    }
+  };
+
+  const handleAdditionalImagesPaste = async (e: React.ClipboardEvent<any>, isEdit: boolean) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+    
+    if (files.length > 0) {
+      e.preventDefault();
+      if (isEdit) {
+        setIsUploadingEditAdditionalImage(true);
+        try {
+          const urls = await Promise.all(
+            files.map(file => uploadImageToCloud(file))
+          );
+          const validUrls = urls.filter(Boolean);
+          if (validUrls.length > 0) {
+            setEditingProduct(prev => {
+              if (!prev) return null;
+              const currentImgs = prev.images || [];
+              return {
+                ...prev,
+                images: [...currentImgs, ...validUrls]
+              };
+            });
+          }
+        } catch (err) {
+          console.error("Paste additional upload error:", err);
+          alert("ไม่สามารถอัปโหลดรูปภาพเพิ่มเติมที่คัดลอกมาได้ค่ะ ❌");
+        } finally {
+          setIsUploadingEditAdditionalImage(false);
+        }
+      } else {
+        setIsUploadingAdditionalImage(true);
+        try {
+          const urls = await Promise.all(
+            files.map(file => uploadImageToCloud(file))
+          );
+          const validUrls = urls.filter(Boolean);
+          if (validUrls.length > 0) {
+            setNewProdImages(prev => [...prev, ...validUrls]);
+          }
+        } catch (err) {
+          console.error("Paste additional upload error:", err);
+          alert("ไม่สามารถอัปโหลดรูปภาพเพิ่มเติมที่คัดลอกมาได้ค่ะ ❌");
+        } finally {
+          setIsUploadingAdditionalImage(false);
         }
       }
     }
@@ -1154,7 +1205,7 @@ export default function HomeTab({
               </button>
             </div>
 
-            <form onSubmit={triggerAddProduct} onPaste={(e) => handleFormPaste(e, false)} className="space-y-4">
+            <form onSubmit={triggerAddProduct} className="space-y-4">
               {currentUser && (currentUser.role === 'Admin' || currentUser.role === 'SuperAdmin') && (
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-600">ระบุชื่อร้านค้า (สิทธิ์แอดมินเท่านั้น)</label>
@@ -1188,7 +1239,7 @@ export default function HomeTab({
                     required
                     min="1"
                     placeholder="เช่น 390"
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-red-500 font-mono"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-red-500"
                     value={newProdPrice || ''}
                     onChange={(e) => setNewProdPrice(Number(e.target.value))}
                   />
@@ -1232,7 +1283,10 @@ export default function HomeTab({
                     </button>
                   )}
                 </label>
-                <div className="flex flex-col gap-2">
+                <div 
+                  onPaste={(e) => handleMainImagePaste(e, false)}
+                  className="flex flex-col gap-2 p-1 rounded-2xl border border-transparent focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+                >
                   <div className="relative border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50/50 cursor-pointer group">
                     <input
                       type="file"
@@ -1280,10 +1334,14 @@ export default function HomeTab({
               </div>
 
               {/* Additional Images Section */}
-              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
-                <label className="text-xs font-bold text-gray-750 text-gray-700 flex justify-between items-center">
+              <div 
+                tabIndex={0}
+                onPaste={(e) => handleAdditionalImagesPaste(e, false)}
+                className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50 focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+              >
+                <label className="text-xs font-bold text-gray-750 text-gray-700 flex justify-between items-center cursor-pointer">
                   <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
-                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มเติมได้หลายๆ รูป</span>
+                  <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full animate-pulse">💡 คลิกตรงนี้แล้วกด Ctrl+V เพื่อวางรูปได้หลายๆ รูป</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {newProdImages.map((imgUrl, idx) => (
@@ -1427,7 +1485,7 @@ export default function HomeTab({
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditProduct} onPaste={(e) => handleFormPaste(e, true)} className="space-y-4">
+            <form onSubmit={handleSaveEditProduct} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-600 font-display">ชื่อสินค้า</label>
                 <input
@@ -1513,7 +1571,10 @@ export default function HomeTab({
                     </button>
                   )}
                 </label>
-                <div className="flex flex-col gap-2">
+                <div 
+                  onPaste={(e) => handleMainImagePaste(e, true)}
+                  className="flex flex-col gap-2 p-1 rounded-2xl border border-transparent focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+                >
                   <div className="relative border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50/50 cursor-pointer group">
                     <input
                       type="file"
@@ -1560,10 +1621,14 @@ export default function HomeTab({
               </div>
 
               {/* Additional Images Section (Edit Mode) */}
-              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
-                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center">
+              <div 
+                tabIndex={0}
+                onPaste={(e) => handleAdditionalImagesPaste(e, true)}
+                className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50 focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+              >
+                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center cursor-pointer">
                   <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
-                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มได้หลายๆ รูป</span>
+                  <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full animate-pulse">💡 คลิกตรงนี้แล้วกด Ctrl+V เพื่อวางรูปได้หลายๆ รูป</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {(editingProduct.images || []).map((imgUrl, idx) => (
