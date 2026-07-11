@@ -799,6 +799,43 @@ export default function AdminPanel({
     }
   };
 
+  const handleFormPaste = async (e: React.ClipboardEvent<any>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    let hasImage = false;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        hasImage = true;
+        break;
+      }
+    }
+    
+    if (hasImage) {
+      e.preventDefault();
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            setIsUploadingEditImage(true);
+            try {
+              const cloudUrl = await uploadImageToCloud(file);
+              if (cloudUrl && editingCatalogProduct) {
+                setEditingCatalogProduct(prev => prev ? { ...prev, image: cloudUrl } : null);
+              }
+            } catch (err) {
+              console.error("Paste upload error:", err);
+              alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
+            } finally {
+              setIsUploadingEditImage(false);
+            }
+            break;
+          }
+        }
+      }
+    }
+  };
+
   const handleSaveCatalogProductCentral = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCatalogProduct) return;
@@ -2281,7 +2318,7 @@ export default function AdminPanel({
               </div>
 
               {editingCatalogProduct && (
-                <form onSubmit={handleSaveCatalogProductCentral} className="bg-slate-50 border border-slate-350 p-5 rounded-3xl space-y-4 text-xs animate-slide-up">
+                <form onSubmit={handleSaveCatalogProductCentral} onPaste={handleFormPaste} className="bg-slate-50 border border-slate-350 p-5 rounded-3xl space-y-4 text-xs animate-slide-up">
                   <span className="font-black text-[#FF1E27] block border-b pb-1.5 text-xs">✏️ แอดมินแก้ไขข้อมูลสินค้า: ID {editingCatalogProduct.id}</span>
                   
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -2341,7 +2378,7 @@ export default function AdminPanel({
 
                   {/* Image input with local machine uploader file feature */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-550 block">แก้ไขรูปภาพหลักสินค้า (อัพโหลดดึงรูปจากเครื่อง หรือระบุที่อยู่ URL) 📷</label>
+                    <label className="text-[10px] font-bold text-gray-550 block">แก้ไขรูปภาพหลักสินค้า (อัพโหลดดึงรูปจากเครื่อง, กด Ctrl+V เพื่อวางรูปภาพ หรือระบุที่อยู่ URL) 📷</label>
                     <div className="flex flex-col sm:flex-row items-center gap-3.5 bg-white p-3.5 border rounded-2xl">
                       {isUploadingEditImage ? (
                         <div className="w-14 h-14 rounded-xl border bg-gray-50 flex items-center justify-center">
