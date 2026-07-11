@@ -372,7 +372,7 @@ export default function ProfileTab({
     }
   };
 
-  const handleFormPaste = async (e: React.ClipboardEvent<any>) => {
+  const handleMainImagePaste = async (e: React.ClipboardEvent<any>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
     
@@ -405,6 +405,47 @@ export default function ProfileTab({
             break;
           }
         }
+      }
+    }
+  };
+
+  const handleAdditionalImagesPaste = async (e: React.ClipboardEvent<any>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          files.push(file);
+        }
+      }
+    }
+    
+    if (files.length > 0) {
+      e.preventDefault();
+      setIsUploadingEditAdditionalImage(true);
+      try {
+        const urls = await Promise.all(
+          files.map(file => uploadImageToCloud(file))
+        );
+        const validUrls = urls.filter(Boolean);
+        if (validUrls.length > 0) {
+          setEditingProduct(prev => {
+            if (!prev) return null;
+            const currentImgs = prev.images || [];
+            return {
+              ...prev,
+              images: [...currentImgs, ...validUrls]
+            };
+          });
+        }
+      } catch (err) {
+        console.error("Paste additional upload error:", err);
+        alert("ไม่สามารถอัปโหลดรูปภาพเพิ่มเติมที่คัดลอกมาได้ค่ะ ❌");
+      } finally {
+        setIsUploadingEditAdditionalImage(false);
       }
     }
   };
@@ -1806,7 +1847,7 @@ export default function ProfileTab({
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditProduct} onPaste={handleFormPaste} className="space-y-4">
+            <form onSubmit={handleSaveEditProduct} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-600 font-display">ชื่อสินค้า</label>
                 <input
@@ -1892,7 +1933,11 @@ export default function ProfileTab({
                     </button>
                   )}
                 </label>
-                <div className="flex flex-col gap-2">
+                <div 
+                  onPaste={handleMainImagePaste}
+                  tabIndex={0}
+                  className="flex flex-col gap-2 p-1 rounded-2xl border border-transparent focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+                >
                   <div className="relative border-2 border-dashed border-gray-200 hover:border-red-400 transition-colors rounded-2xl p-4 flex flex-col items-center justify-center bg-gray-50/50 cursor-pointer group">
                     <input
                       type="file"
@@ -1939,10 +1984,14 @@ export default function ProfileTab({
               </div>
 
               {/* Additional Images Section (Edit Mode - Profile Tab) */}
-              <div className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
-                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center">
+              <div 
+                tabIndex={0}
+                onPaste={handleAdditionalImagesPaste}
+                className="space-y-2 border border-gray-100 p-3 rounded-2xl bg-gray-50/50 focus-within:border-red-300 focus-within:ring-2 focus-within:ring-red-100 transition-all outline-none"
+              >
+                <label className="text-xs font-bold text-gray-755 text-gray-700 flex justify-between items-center cursor-pointer">
                   <span>รูปภาพสินค้าเพิ่มเติม (หลายมุมมอง) 📸</span>
-                  <span className="text-[10px] text-gray-400 font-bold">อัปโหลดเพิ่มได้หลายๆ รูป</span>
+                  <span className="text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded-full animate-pulse">💡 คลิกตรงนี้แล้วกด Ctrl+V เพื่อวางรูปได้หลายๆ รูป</span>
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {(editingProduct.images || []).map((imgUrl, idx) => (
