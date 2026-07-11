@@ -31,6 +31,248 @@ interface ProfileTabProps {
   onEditProduct: (updated: Product) => void;
 }
 
+const THAI_BANKS = [
+  {
+    id: "kbank",
+    name: "ธนาคารกสิกรไทย",
+    englishName: "Kasikornbank (KBank)",
+    color: "#00A950",
+    textColor: "#ffffff",
+    shortName: "KBANK",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.kasikornbank.com&size=128"
+  },
+  {
+    id: "scb",
+    name: "ธนาคารไทยพาณิชย์",
+    englishName: "Siam Commercial Bank (SCB)",
+    color: "#4E2A84",
+    textColor: "#ffffff",
+    shortName: "SCB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.scb.co.th&size=128"
+  },
+  {
+    id: "bbl",
+    name: "ธนาคารกรุงเทพ",
+    englishName: "Bangkok Bank (BBL)",
+    color: "#003399",
+    textColor: "#ffffff",
+    shortName: "BBL",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.bangkokbank.com&size=128"
+  },
+  {
+    id: "ktb",
+    name: "ธนาคารกรุงไทย",
+    englishName: "Krungthai Bank (KTB)",
+    color: "#00A2E5",
+    textColor: "#ffffff",
+    shortName: "KTB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://krungthai.com&size=128"
+  },
+  {
+    id: "krungsri",
+    name: "ธนาคารกรุงศรีอยุธยา",
+    englishName: "Bank of Ayudhya (Krungsri)",
+    color: "#FEC425",
+    textColor: "#000000",
+    shortName: "BAY",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.krungsri.com&size=128"
+  },
+  {
+    id: "gsb",
+    name: "ธนาคารออมสิน",
+    englishName: "Government Savings Bank (GSB)",
+    color: "#EC068C",
+    textColor: "#ffffff",
+    shortName: "GSB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.gsb.or.th&size=128"
+  },
+  {
+    id: "ttb",
+    name: "ธนาคารทหารไทยธนชาต",
+    englishName: "TMBThanachart Bank (ttb)",
+    color: "#0047BA",
+    textColor: "#ffffff",
+    shortName: "TTB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.ttbbank.com&size=128"
+  },
+  {
+    id: "baac",
+    name: "ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร",
+    englishName: "Bank for Agriculture and Agricultural Cooperatives (BAAC)",
+    color: "#006C35",
+    textColor: "#ffffff",
+    shortName: "BAAC",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.baac.or.th&size=128"
+  },
+  {
+    id: "uob",
+    name: "ธนาคารยูโอบี",
+    englishName: "United Overseas Bank (UOB)",
+    color: "#0B2A4A",
+    textColor: "#ffffff",
+    shortName: "UOB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.uob.co.th&size=128"
+  },
+  {
+    id: "ghb",
+    name: "ธนาคารอาคารสงเคราะห์",
+    englishName: "Government Housing Bank (GHB)",
+    color: "#FF6600",
+    textColor: "#ffffff",
+    shortName: "GHB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.ghbank.co.th&size=128"
+  },
+  {
+    id: "kkp",
+    name: "ธนาคารเกียรตินาคินภัทร",
+    englishName: "Kiatnakin Phatra Bank (KKP)",
+    color: "#5E17EB",
+    textColor: "#ffffff",
+    shortName: "KKP",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.kkpfg.com&size=128"
+  },
+  {
+    id: "cimb",
+    name: "ธนาคารซีไอเอ็มบีไทย",
+    englishName: "CIMB Thai Bank",
+    color: "#8C0305",
+    textColor: "#ffffff",
+    shortName: "CIMB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.cimbthai.com&size=128"
+  },
+  {
+    id: "lhb",
+    name: "ธนาคารแลนด์ แอนด์ เฮ้าส์",
+    englishName: "Land and Houses Bank (LH Bank)",
+    color: "#00508F",
+    textColor: "#ffffff",
+    shortName: "LHBANK",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.lhbank.co.th&size=128"
+  },
+  {
+    id: "tcrb",
+    name: "ธนาคารไทยเครดิต",
+    englishName: "Thai Credit Bank",
+    color: "#1B3E6C",
+    textColor: "#ffffff",
+    shortName: "TCRB",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.thaicreditbank.com&size=128"
+  },
+  {
+    id: "icbc",
+    name: "ธนาคารไอซีบีซี (ไทย)",
+    englishName: "ICBC (Thai)",
+    color: "#C30D23",
+    textColor: "#ffffff",
+    shortName: "ICBC",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.icbc.com.cn&size=128"
+  },
+  {
+    id: "boc",
+    name: "ธนาคารแห่งประเทศจีน (ไทย)",
+    englishName: "Bank of China (Thai)",
+    color: "#B31B1B",
+    textColor: "#ffffff",
+    shortName: "BOC",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.bankofchina.co.th&size=128"
+  },
+  {
+    id: "exim",
+    name: "ธนาคารเพื่อการส่งออกและนำเข้าแห่งประเทศไทย",
+    englishName: "Export-Import Bank of Thailand (EXIM)",
+    color: "#0054A6",
+    textColor: "#ffffff",
+    shortName: "EXIM",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.exim.go.th&size=128"
+  },
+  {
+    id: "sme",
+    name: "ธนาคารพัฒนาวิสาหกิจขนาดกลางและขนาดย่อมแห่งประเทศไทย",
+    englishName: "SME Development Bank of Thailand",
+    color: "#004B87",
+    textColor: "#ffffff",
+    shortName: "SMED",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.smebank.co.th&size=128"
+  },
+  {
+    id: "ibank",
+    name: "ธนาคารอิสลามแห่งประเทศไทย",
+    englishName: "Islamic Bank of Thailand (iBank)",
+    color: "#006B54",
+    textColor: "#ffffff",
+    shortName: "IBANK",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.ibank.co.th&size=128"
+  },
+  {
+    id: "bot",
+    name: "ธนาคารแห่งประเทศไทย",
+    englishName: "Bank of Thailand (BOT)",
+    color: "#003366",
+    textColor: "#ffffff",
+    shortName: "BOT",
+    logo: "https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.bot.or.th&size=128"
+  }
+];
+
+function BankLogo({ bank, className = "w-6 h-6" }: { bank: typeof THAI_BANKS[0], className?: string }) {
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [bank.id, bank.logo]);
+  
+  if (imgError || !bank.logo) {
+    return (
+      <div 
+        className={`${className} flex items-center justify-center rounded-full text-[9px] font-bold text-white uppercase shadow-xs`}
+        style={{ backgroundColor: bank.color }}
+      >
+        {bank.shortName.substring(0, 2)}
+      </div>
+    );
+  }
+  
+  return (
+    <img 
+      src={bank.logo} 
+      alt={bank.name} 
+      className={`${className} object-contain rounded bg-white p-0.5 border border-gray-150 shadow-xs`}
+      referrerPolicy="no-referrer"
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
+const findBank = (name: string) => {
+  return THAI_BANKS.find(b => 
+    b.name === name || 
+    b.englishName === name || 
+    b.shortName === name || 
+    name.toLowerCase().includes(b.shortName.toLowerCase()) || 
+    b.name.includes(name)
+  );
+};
+
+const renderSelectedBankInfo = (name: string) => {
+  const matched = findBank(name);
+  if (matched) {
+    return (
+      <div className="flex items-center gap-2">
+        <BankLogo bank={matched} className="w-5 h-5" />
+        <span className="text-xs font-bold text-gray-800">{matched.name}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-5 h-5 flex items-center justify-center rounded-full bg-gray-200 text-[10px] font-bold text-gray-600">
+        🏦
+      </div>
+      <span className="text-xs font-bold text-gray-850">{name || "เลือกธนาคารของประเทศ..."}</span>
+    </div>
+  );
+};
+
 export default function ProfileTab({
   currentUser,
   settings,
@@ -172,6 +414,8 @@ export default function ProfileTab({
   const [bankName, setBankName] = useState(currentUser?.bankName || '');
   const [bankAccount, setBankAccount] = useState(currentUser?.bankAccount || '');
   const [bankHolderName, setBankHolderName] = useState(currentUser?.bankHolderName || '');
+  const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
+  const [bankSearch, setBankSearch] = useState('');
 
   const themePrimary = settings.themeColor || '#FF1E27';
   const themeGradientEnd = settings.themeGradientEnd || '#FF5E62';
@@ -905,14 +1149,14 @@ export default function ProfileTab({
             {isMerchant && (
               <div className="border-t pt-4 space-y-4">
                 <div className="flex flex-col">
-                  <span className="text-xs font-black text-red-600 font-display block">🔐 ข้อมูลสตรีมบัญชีธนาคารรับสิทธิ์ของท่าน (Merchant bank record)</span>
+                  <span className="text-xs font-black text-red-600 font-display block">🔐 ข้อมูลบัญชีธนาคารสำหรับทำรายการถอน</span>
                   <p className="text-[9px] text-gray-400 mt-1 font-bold">
                     * สำคัญ: ข้อมูลสำหรับการระบายตัดยอดถอนเงินร้านค้า หากท่านบันทึกครั้งแรกแล้วข้อมูลจะถูกล็อกถาวรเพื่อความปลอดภัย ปลอมแปลงไม่ได้!
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500">ชื่อจริงผู้ถือบัญชี (Bank Account Holder Name)</label>
+                  <label className="text-[10px] font-bold text-gray-500">ชื่อจริง - นามสกุล (Bank Account Holder Name)</label>
                   <input
                     type="text"
                     required
@@ -925,17 +1169,100 @@ export default function ProfileTab({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500">ชื่อชื่อธนาคารปักหลัก</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="เช่น ธนาคารกสิกรไทย"
-                      disabled={isBankPrePopulated}
-                      className={`w-full bg-gray-50 border rounded-xl p-2.5 text-xs font-bold ${isBankPrePopulated ? 'bg-gray-100 font-bold text-gray-400 cursor-not-allowed border-gray-200' : ''}`}
-                      value={bankName}
-                      onChange={(e) => setBankName(e.target.value)}
-                    />
+                  <div className="space-y-1.5 relative">
+                    <label className="text-[10px] font-bold text-gray-500 block">ธนาคาร</label>
+                    {isBankPrePopulated ? (
+                      <div className="w-full bg-gray-100 border border-gray-200 rounded-xl p-2.5 flex items-center justify-between text-gray-400 select-none cursor-not-allowed">
+                        {renderSelectedBankInfo(bankName)}
+                        <span className="text-[9px] text-gray-400 font-bold">ล็อกแล้ว</span>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
+                          className="w-full bg-gray-50 border rounded-xl p-2.5 text-left text-xs font-bold flex items-center justify-between hover:bg-gray-100 transition-colors"
+                        >
+                          {renderSelectedBankInfo(bankName)}
+                          <span className="text-gray-400 text-[10px] ml-1">▼</span>
+                        </button>
+                        
+                        {isBankDropdownOpen && (
+                          <div className="absolute left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-hidden flex flex-col">
+                            {/* Search Box */}
+                            <div className="p-2 border-b border-gray-100 bg-gray-50">
+                              <input
+                                type="text"
+                                placeholder="ค้นหาธนาคาร..."
+                                className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none"
+                                value={bankSearch}
+                                onChange={(e) => setBankSearch(e.target.value)}
+                              />
+                            </div>
+                            
+                            {/* Banks List */}
+                            <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-48">
+                              {THAI_BANKS.filter(b => 
+                                b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
+                                b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
+                                b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
+                              ).map((bank) => (
+                                <button
+                                  key={bank.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setBankName(bank.name);
+                                    setIsBankDropdownOpen(false);
+                                    setBankSearch('');
+                                  }}
+                                  className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
+                                >
+                                  <BankLogo bank={bank} className="w-6 h-6" />
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-gray-800">{bank.name}</span>
+                                    <span className="text-[9px] text-gray-400 font-mono">{bank.englishName}</span>
+                                  </div>
+                                </button>
+                              ))}
+                              
+                              {THAI_BANKS.filter(b => 
+                                b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
+                                b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
+                                b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
+                              ).length === 0 && (
+                                <div className="p-3 text-center text-xs font-bold text-gray-400">
+                                  ไม่พบธนาคารที่คุณระบุ
+                                </div>
+                              )}
+                              
+                              {/* Custom manual option if they really want to type something else */}
+                              <div className="p-2 bg-gray-50 flex gap-2 border-t border-gray-100">
+                                <input
+                                  type="text"
+                                  placeholder="ระบุธนาคารอื่น..."
+                                  className="flex-1 bg-white border border-gray-250 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none"
+                                  value={bankSearch}
+                                  onChange={(e) => setBankSearch(e.target.value)}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (bankSearch.trim()) {
+                                      setBankName(bankSearch.trim());
+                                      setIsBankDropdownOpen(false);
+                                      setBankSearch('');
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-gray-800 text-white text-[10px] font-bold"
+                                >
+                                  ตกลง
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-gray-500">เลขที่บัญชีรับเงิน (พาสเวิร์ด)</label>
@@ -1262,11 +1589,20 @@ export default function ProfileTab({
                 />
               </div>
 
-              <div className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl space-y-1 text-[10px] text-gray-500 font-semibold leading-normal">
-                <p>🏦 บัญชีผู้รับโอนเงินล็อคหลักของคุณ:</p>
-                <p>• เจ้าของ: {currentUser.bankHolderName || (currentUser.name)}</p>
-                <p>• ธนาคาร: {currentUser.bankName || 'กรุณาระบุกรอกในข้อมูลส่วนบุคคลก่อน'}</p>
-                <p>• เลขบัญชี: {currentUser.bankAccount || 'ยังไม่กำหนด'}</p>
+              <div className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl space-y-1.5 text-[10px] text-gray-500 font-semibold leading-normal">
+                <p className="font-bold text-gray-700">🏦 บัญชีผู้รับโอนเงินล็อคหลักของคุณ:</p>
+                <p>• เจ้าของ: <span className="font-bold text-gray-800">{currentUser.bankHolderName || (currentUser.name)}</span></p>
+                <div className="flex items-center gap-1.5">
+                  <span>• ธนาคาร:</span>
+                  {currentUser.bankName ? (
+                    <div className="scale-90 origin-left inline-block">
+                      {renderSelectedBankInfo(currentUser.bankName)}
+                    </div>
+                  ) : (
+                    <span className="text-red-500 font-bold">กรุณาระบุกรอกในข้อมูลส่วนบุคคลก่อน</span>
+                  )}
+                </div>
+                <p>• เลขบัญชี: <span className="font-bold text-gray-800 font-mono">{currentUser.bankAccount || 'ยังไม่กำหนด'}</span></p>
               </div>
 
               <button
