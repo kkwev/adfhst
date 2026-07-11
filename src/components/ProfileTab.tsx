@@ -372,6 +372,43 @@ export default function ProfileTab({
     }
   };
 
+  const handleFormPaste = async (e: React.ClipboardEvent<any>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    let hasImage = false;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        hasImage = true;
+        break;
+      }
+    }
+    
+    if (hasImage) {
+      e.preventDefault();
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            setIsUploadingEditImage(true);
+            try {
+              const cloudUrl = await uploadImageToCloud(file);
+              if (cloudUrl && editingProduct) {
+                setEditingProduct(prev => prev ? { ...prev, image: cloudUrl } : null);
+              }
+            } catch (err) {
+              console.error("Paste upload error:", err);
+              alert("ไม่สามารถอัปโหลดรูปภาพที่คัดลอกมาได้ค่ะ ❌");
+            } finally {
+              setIsUploadingEditImage(false);
+            }
+            break;
+          }
+        }
+      }
+    }
+  };
+
   const handleSaveEditProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
@@ -1769,7 +1806,7 @@ export default function ProfileTab({
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditProduct} className="space-y-4">
+            <form onSubmit={handleSaveEditProduct} onPaste={handleFormPaste} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-600 font-display">ชื่อสินค้า</label>
                 <input
@@ -1883,8 +1920,8 @@ export default function ProfileTab({
                         <div className="mx-auto w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-red-100 group-hover:text-red-500 transition-colors">
                           📁
                         </div>
-                        <p className="text-[11px] font-bold text-gray-500 group-hover:text-red-500 transition-colors">คลิกหรือลากไฟล์รูปภาพใหม่มาวางที่นี่</p>
-                        <p className="text-[9px] text-gray-400">รองรับไฟล์ภาพ JPEG, PNG, WEBP (ขนาดไม่เกิน 5MB)</p>
+                        <p className="text-[11px] font-bold text-gray-500 group-hover:text-red-500 transition-colors">คลิก, ลากไฟล์ หรือกด Ctrl+V เพื่อวางรูปภาพใหม่ที่คัดลอกมา</p>
+                        <p className="text-[9px] text-gray-400">รองรับไฟล์ภาพ JPEG, PNG, WEBP (หรือ Copy รูปแล้วกด Ctrl+V เพื่อวางรูปภาพ)</p>
                       </div>
                     )}
                   </div>
