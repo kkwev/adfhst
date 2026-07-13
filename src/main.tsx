@@ -5,10 +5,93 @@ import './index.css';
 
 // Monkey-patch localStorage.setItem to gracefully handle and recover from QuotaExceededError (5MB browser limit)
 const originalSetItem = localStorage.setItem;
-localStorage.setItem = function(key, value) {
+
+function makeLightweightForLocalStorage(key: string, rawValue: string): string {
+  if (!rawValue) return rawValue;
   try {
-    // Try to write the raw unmodified value first to preserve custom uploaded images perfectly!
-    originalSetItem.call(localStorage, key, value);
+    const trimmed = rawValue.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      const parsed = JSON.parse(trimmed);
+      
+      // 1. For products, replace heavy base64 image strings with a lightweight high-quality Unsplash beauty photo
+      if (key === "paopao_products" && Array.isArray(parsed)) {
+        const cleaned = parsed.map((p: any) => ({
+          ...p,
+          image: (p.image && p.image.startsWith("data:")) 
+            ? "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=150" 
+            : p.image,
+          images: (p.images || []).map((img: string) => 
+            img && img.startsWith("data:") 
+              ? "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=150" 
+              : img
+          )
+        }));
+        return JSON.stringify(cleaned);
+      }
+      
+      // 2. For deposits, replace heavy base64 slipImage with empty string or a lightweight slip photo placeholder
+      if (key === "paopao_deposits" && Array.isArray(parsed)) {
+        const cleaned = parsed.map((d: any) => ({
+          ...d,
+          slipImage: (d.slipImage && d.slipImage.startsWith("data:"))
+            ? (d.status === "pending" 
+                ? "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150" 
+                : "")
+            : d.slipImage
+        }));
+        return JSON.stringify(cleaned);
+      }
+      
+      // 3. For chats, remove any heavy base64 images completely to keep chat history tiny
+      if (key === "paopao_chats" && Array.isArray(parsed)) {
+        const cleaned = parsed.map((c: any) => ({
+          ...c,
+          image: (c.image && c.image.startsWith("data:")) ? "" : c.image
+        }));
+        return JSON.stringify(cleaned);
+      }
+
+      // 4. For orders, replace product item base64 images with lightweight Unsplash cosmetics
+      if (key === "paopao_orders" && Array.isArray(parsed)) {
+        const cleaned = parsed.map((o: any) => ({
+          ...o,
+          items: (o.items || []).map((it: any) => ({
+            ...it,
+            image: (it.image && it.image.startsWith("data:"))
+              ? "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=150"
+              : it.image
+          }))
+        }));
+        return JSON.stringify(cleaned);
+      }
+
+      // 5. For users, replace heavy base64 avatar with a lightweight Unsplash avatar placeholder
+      if (key === "paopao_users" && Array.isArray(parsed)) {
+        const cleaned = parsed.map((u: any) => ({
+          ...u,
+          avatar: (u.avatar && u.avatar.startsWith("data:"))
+            ? "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"
+            : u.avatar
+        }));
+        return JSON.stringify(cleaned);
+      }
+    }
+  } catch (err) {
+    if (typeof rawValue === "string" && rawValue.includes("data:image/")) {
+      try {
+        return rawValue.replace(/"data:image\/[^"]+"/g, '"https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=150"');
+      } catch (regexErr) {}
+    }
+  }
+  return rawValue;
+}
+
+localStorage.setItem = function(key, value) {
+  // Proactively make the saved value lightweight to completely prevent QuotaExceededErrors
+  const processedValue = makeLightweightForLocalStorage(key, value);
+  
+  try {
+    originalSetItem.call(localStorage, key, processedValue);
   } catch (e: any) {
     const isQuotaError = 
       e instanceof DOMException && (
@@ -19,60 +102,40 @@ localStorage.setItem = function(key, value) {
       ) || (e && (e.name === "QuotaExceededError" || e.message?.includes("quota") || e.message?.includes("Quota")));
 
     if (isQuotaError) {
-      console.warn("localStorage quota exceeded! Attempting aggressive auto-cleanup of non-essential data to free up space...");
+      console.warn("localStorage quota exceeded even after proactive pruning! Performing aggressive emergency cleanup...");
       try {
-        // 1. Remove large, non-essential online action logs
-        localStorage.removeItem("paopao_online_actions_log");
-        
-        // 2. Aggressively reset non-critical logs and arrays to free up massive chunks of space
-        const keysToClear = [
-          "paopao_chats",
-          "paopao_notifications",
-          "paopao_orders",
-          "paopao_deposits",
-          "paopao_withdrawals"
+        // Completely remove non-critical action logs
+        try {
+          localStorage.removeItem("paopao_online_actions_log");
+        } catch (err) {}
+
+        // Keep only very last few elements of critical arrays to reclaim space
+        const arraysToPrune = [
+          { key: "paopao_chats", max: 3 },
+          { key: "paopao_notifications", max: 3 },
+          { key: "paopao_orders", max: 3 },
+          { key: "paopao_deposits", max: 3 },
+          { key: "paopao_withdrawals", max: 3 }
         ];
-        
-        for (const k of keysToClear) {
-          try {
-            originalSetItem.call(localStorage, k, JSON.stringify([]));
-          } catch (clearErr) {}
-        }
 
-        let processedValue = value;
-
-        // Compress or strip base64 images to a fallback cosmetics image URL as a last resort
-        if (typeof processedValue === "string" && (processedValue.includes("data:image/") || processedValue.includes("data:application/"))) {
+        for (const item of arraysToPrune) {
           try {
-            processedValue = processedValue.replace(/"data:(image|application)\/[^"]+"/g, (match) => {
-              if (match.length > 20000) {
-                return '"https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=400"';
+            const raw = localStorage.getItem(item.key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed) && parsed.length > item.max) {
+                originalSetItem.call(localStorage, item.key, JSON.stringify(parsed.slice(-item.max)));
               }
-              return match;
-            });
-          } catch (err) {
-            console.warn("Base64 regex stripping failed in localStorage:", err);
-          }
-        }
-
-        // Also compress the settings value if we are trying to save it
-        if (key === "paopao_settings" && typeof processedValue === "string") {
-          try {
-            const parsed = JSON.parse(processedValue);
-            if (parsed.banners && Array.isArray(parsed.banners)) {
-              // Replace high-resolution banner images with lightweight Unsplash mock URLs
-              parsed.banners = parsed.banners.map(() => "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&q=80&w=1200");
-              processedValue = JSON.stringify(parsed);
             }
-          } catch (pErr) {}
+          } catch (err) {}
         }
 
-        // Retry the original write operation with compressed/cleaned storage state
+        // Retry the save with proactive and aggressive backup pruning
+        localStorage.removeItem(key);
         originalSetItem.call(localStorage, key, processedValue);
-        console.log(`Successfully recovered from QuotaExceededError for key: "${key}" after aggressive clearing.`);
+        console.log(`Successfully recovered from emergency QuotaExceededError for key: "${key}".`);
       } catch (retryError) {
-        console.error("Critical: localStorage still exceeded quota after aggressive cleanup of logs.", retryError);
-        // Do not throw the error to prevent crashing the React app
+        console.warn("localStorage recovery warning for key: " + key, retryError);
       }
     } else {
       throw e;
