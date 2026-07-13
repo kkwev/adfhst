@@ -147,15 +147,15 @@ export async function uploadImageToCloud(file: File): Promise<string> {
     }
     
     // 4. Fallback: If Firebase Storage fails or is not yet configured, use a highly optimized compressed Base64 data URL.
-    // We compress it to 450px size with 0.55 quality (yielding a super-lightweight 8-15KB string).
+    // We compress it to 360px size with 0.45 quality (yielding an ultra-lightweight 5-10KB string).
     // This is 100% permanent, never expires, never disappears, and loads instantly because it's stored directly in Firestore!
     console.warn("Firebase Storage upload failed or timed out. Falling back to a highly-optimized permanent Base64 data URL...");
-    const fallbackBase64 = await compressImage(file, 450, 0.55);
+    const fallbackBase64 = await compressImage(file, 360, 0.45);
     return fallbackBase64;
   } catch (error) {
     console.error("Upload to cloud failed:", error);
     try {
-      return await compressImage(file, 450, 0.5);
+      return await compressImage(file, 360, 0.4);
     } catch (fallbackError) {
       return "";
     }
