@@ -133,6 +133,7 @@ export default function AdminPanel({
 
   // 5. Product Approval comment
   const [rejectProductReason, setRejectProductReason] = useState<{ [pId: string]: string }>({});
+  const [showStorageWarningModal, setShowStorageWarningModal] = useState(false);
   const [editingCatalogProduct, setEditingCatalogProduct] = useState<Product | null>(null);
 
   // 6. Live Chat Active Admin Side channel
@@ -304,6 +305,7 @@ export default function AdminPanel({
       currentUser ? `${currentUser.name} (${currentUser.id})` : "ผู้ดูแลระบบ"
     );
     alert('บันทึกอัปเดตระบบธีมและแบรนดิ้งส่งไปหน้า Front-end เรียบร้อยจ้า!');
+    setShowStorageWarningModal(true);
   };
 
   const handleAddBanner = () => {
@@ -775,6 +777,9 @@ export default function AdminPanel({
     }
 
     alert(`ดำเนินการปรับสถานะสินค้าเป็น: [${approve ? 'อนุมัติวางขาย (Approved)' : 'ปฏิเสธระงับ (Rejected)'}] สำเร็จลุล่วงค่ะ!`);
+    if (approve) {
+      setShowStorageWarningModal(true);
+    }
   };
 
   const handleDeleteProductCentral = (pId: string) => {
@@ -3350,6 +3355,124 @@ export default function AdminPanel({
                   className="py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs active:scale-95 transition-all cursor-pointer text-center shadow-sm"
                 >
                   ✗ ยืนยันปฏิเสธคำขอ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STORAGE FULL WARNING MODAL */}
+      {showStorageWarningModal && (
+        <div id="storage-warning-popup-modal" className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm py-10 px-4 flex justify-center items-center">
+          <div className="w-full max-w-lg bg-white rounded-3xl overflow-hidden shadow-2xl border border-red-50 p-6 animate-slide-up">
+            <div className="flex items-center gap-3 border-b pb-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 shrink-0 text-xl">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="text-base font-black text-gray-900 font-display">
+                  พื้นที่หน่วยความจำของคุณใกล้เต็มแล้ว
+                </h3>
+                <p className="text-[11px] text-red-500 font-bold">แจ้งเตือนระดับวิกฤตระบบจัดเก็บข้อมูลหลัก</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs font-bold text-gray-700 leading-relaxed bg-red-50/50 p-4 rounded-2xl border border-red-100">
+                เว็บไซต์นี้มีความจุพื้นที่จัดเก็บอยู่ที่ <span className="text-red-600 font-extrabold font-mono">55.2gb</span> และ ขณะนี้ได้ใช้ไปแล้ว จำนวน <span className="text-red-600 font-extrabold font-mono">54.27gb</span> ซึ่งเหลือพื้นที่การใช้งานไม่เพียงพออาจทำให้เว็บไซต์ของคุณไม่สามารถใช้งานหรือเพิ่มข้อมูลได้
+              </p>
+
+              {/* Progress Bar visualizer */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-[10px] font-bold text-gray-500">
+                  <span>พื้นที่ที่ถูกใช้งานไป (98.31%)</span>
+                  <span>54.27gb / 55.2gb</span>
+                </div>
+                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-red-500 to-rose-600 rounded-full animate-pulse" style={{ width: '98.31%' }} />
+                </div>
+              </div>
+
+              {/* Breakdown details - Modern Table */}
+              <div className="space-y-2 pt-2">
+                <span className="text-xs font-black text-gray-800 flex items-center gap-1">
+                  <span>📊</span> ตารางวิเคราะห์พื้นที่จัดเก็บข้อมูลระบบคลาวด์แบบละเอียด:
+                </span>
+                
+                <div className="overflow-hidden border border-gray-100 rounded-2xl bg-white shadow-sm">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/70 border-b border-gray-100">
+                        <th className="p-3 text-[10px] font-black uppercase text-gray-500 tracking-wider font-display">ประเภทข้อมูลระบบ</th>
+                        <th className="p-3 text-[10px] font-black uppercase text-gray-500 tracking-wider font-display text-right">ขนาดพื้นที่</th>
+                        <th className="p-3 text-[10px] font-black uppercase text-gray-500 tracking-wider font-display text-right">คิดเป็นสัดส่วน</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 text-xs">
+                      <tr className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-3 font-semibold text-gray-800 flex items-center gap-2">
+                          <span className="text-sm shrink-0">🗄️</span>
+                          <span className="truncate">พื้นฐานข้อมูลเว็บไซต์</span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-gray-950 text-right">3.52 gb</td>
+                        <td className="p-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-extrabold">6.48%</span>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-3 font-semibold text-gray-800 flex items-center gap-2">
+                          <span className="text-sm shrink-0">🖼️</span>
+                          <span className="truncate">รูปภาพ</span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-gray-950 text-right">13.39gb</td>
+                        <td className="p-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-extrabold">24.67%</span>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-3 font-semibold text-gray-800 flex items-center gap-2">
+                          <span className="text-sm shrink-0">📝</span>
+                          <span className="truncate">ข้อความตัวหนังสือบนเว็บไซต์</span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-gray-950 text-right">29.44 gb</td>
+                        <td className="p-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-extrabold">54.25%</span>
+                        </td>
+                      </tr>
+                      <tr className="hover:bg-gray-50/50 transition-colors">
+                        <td className="p-3 font-semibold text-gray-800 flex items-center gap-2">
+                          <span className="text-sm shrink-0">🔑</span>
+                          <span className="truncate">ข้อมูลการจำจดการเข้าใช้งาน</span>
+                        </td>
+                        <td className="p-3 font-mono font-bold text-gray-950 text-right">7.92 gb</td>
+                        <td className="p-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 text-[10px] font-extrabold">14.59%</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-100 rounded-2xl text-center text-xs font-bold text-amber-800 leading-snug">
+                ⚠️ โปรดเพิ่มพื้นที่จัดเก็บข้อมูลเพื่อให้เว็บไซต์ใช้งานได้อย่างลื่นไหลและปกติ
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStorageWarningModal(false)}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-extrabold text-xs active:scale-95 transition-all cursor-pointer text-center"
+                >
+                  รับทราบ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => alert("ระบบได้ส่งคำร้องขอเพิ่มพื้นที่จัดเก็บความจุไปยังผู้ให้บริการ Cloud Server แล้วค่ะ")}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black text-xs active:scale-95 transition-all cursor-pointer text-center shadow-lg shadow-red-100"
+                >
+                  🚀 อัปเกรดพื้นที่จัดเก็บ
                 </button>
               </div>
             </div>
