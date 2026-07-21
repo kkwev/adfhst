@@ -18,6 +18,7 @@ export interface User {
   bankHolderName?: string;
   avatar?: string;
   isOrderEnabled?: boolean;
+  createdAt?: string;
 }
 
 export interface ProductOptionItem {
