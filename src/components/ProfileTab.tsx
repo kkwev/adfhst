@@ -540,8 +540,9 @@ export default function ProfileTab({
   const myWithdrawals = withdrawals.filter(w => w.merchantId === currentUser.id);
   const myDeposits = (deposits || []).filter(d => d.userId === currentUser.id);
 
-  // Aggregate simulated transactions list
-  const mockTransactions = [
+  // Aggregate simulated transactions list (Only for demo/seeded users; reset to empty [] for newly registered accounts)
+  const isSeedUser = ["A00001", "A00002", "S00001", "S00002", "M00001", "M00002"].includes(currentUser?.id);
+  const mockTransactions = isSeedUser ? [
     { 
       id: "TX-009822", 
       type: "deposit", 
@@ -563,7 +564,7 @@ export default function ProfileTab({
       date: "2026-06-18 10:15", 
       note: "ดำเนินการเสร็จสิ้น"
     },
-  ];
+  ] : [];
 
   // Map withdrawals list as payment types
   const parsedWithdrawalTxs = myWithdrawals.map(w => {
@@ -670,7 +671,19 @@ export default function ProfileTab({
       return;
     }
 
-    const nextId = `DEP${String(deposits.length + 1).padStart(5, '0')}`;
+    let nextNumVal = 29416283;
+    const storedLastNum = localStorage.getItem("paopao_last_deposit_number");
+    if (storedLastNum) {
+      const parsed = parseInt(storedLastNum, 10);
+      if (!isNaN(parsed)) {
+        const gaps = [7, 14, 17, 21, 26];
+        const randomGap = gaps[Math.floor(Math.random() * gaps.length)];
+        nextNumVal = parsed + randomGap;
+      }
+    }
+    localStorage.setItem("paopao_last_deposit_number", nextNumVal.toString());
+    const nextId = `DEP${nextNumVal}`;
+
     const freshDeposit: DepositRequest = {
       id: nextId,
       userId: currentUser.id,
