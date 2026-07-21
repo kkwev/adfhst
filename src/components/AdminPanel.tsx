@@ -990,6 +990,13 @@ export default function AdminPanel({
       }));
     }
 
+    // Ensure the images array has the updated main image as its first element
+    if (!alignedProduct.images || alignedProduct.images.length === 0) {
+      alignedProduct.images = [alignedProduct.image];
+    } else {
+      alignedProduct.images = [alignedProduct.image, ...alignedProduct.images.slice(1)];
+    }
+
     const updated = products.map(p => {
       if (p.id === alignedProduct.id) {
         return alignedProduct;
