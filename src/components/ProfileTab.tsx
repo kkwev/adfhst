@@ -453,9 +453,18 @@ export default function ProfileTab({
   const handleSaveEditProduct = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
+    
+    const alignedProduct = { ...editingProduct };
+    // Ensure the images array has the updated main image as its first element
+    if (!alignedProduct.images || alignedProduct.images.length === 0) {
+      alignedProduct.images = [alignedProduct.image];
+    } else {
+      alignedProduct.images = [alignedProduct.image, ...alignedProduct.images.slice(1)];
+    }
+
     const productPayload = { 
-      ...editingProduct,
-      status: (currentUser?.role === 'Merchant' ? 'pending' : editingProduct.status) as any
+      ...alignedProduct,
+      status: (currentUser?.role === 'Merchant' ? 'pending' : alignedProduct.status) as any
     };
     setShowEditModal(false);
     setEditingProduct(null);
