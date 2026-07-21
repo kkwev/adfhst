@@ -32,6 +32,30 @@ interface CartItem {
   selectedOptions: { [category: string]: string };
 }
 
+// Helper function to keep main product image and the first item of the additional images list 100% in sync
+function syncProductImages(p: Product): Product {
+  if (!p) return p;
+  const images = p.images ? [...p.images] : [];
+  const mainImage = p.image || '';
+
+  if (mainImage) {
+    if (images.length === 0) {
+      images.push(mainImage);
+    } else if (images[0] !== mainImage) {
+      // If the main image is different from the first image in the list, update the first image to match the main image
+      images[0] = mainImage;
+    }
+  } else if (images.length > 0) {
+    p.image = images[0];
+  }
+
+  return {
+    ...p,
+    image: p.image || mainImage,
+    images: images.filter(Boolean)
+  };
+}
+
 export default function App() {
   // Navigation states: 'home' | 'cart' | 'orders' | 'notifications' | 'profile' | 'admin' | 'login'
   const [activeTab, setActiveTab] = useState<string>('home');
@@ -104,7 +128,7 @@ export default function App() {
         : DEFAULT_SETTINGS.customCategories
     };
     const loadedUsers = getStoredData<User[]>("paopao_users", []);
-    const loadedProducts = getStoredData<Product[]>("paopao_products", []);
+    const loadedProducts = getStoredData<Product[]>("paopao_products", []).map(syncProductImages);
     const loadedOrders = getStoredData<Order[]>("paopao_orders", []);
     const loadedChats = getStoredData<ChatMessage[]>("paopao_chats", []);
     const loadedWithdrawals = getStoredData<WithdrawalRequest[]>("paopao_withdrawals", []);
@@ -428,9 +452,10 @@ export default function App() {
               });
 
               list.sort((a, b) => a.id.localeCompare(b.id));
-              updateFirestoreCache("paopao_products", list);
-              localStorage.setItem("paopao_products", JSON.stringify(list));
-              setProducts(list);
+              const syncedList = list.map(syncProductImages);
+              updateFirestoreCache("paopao_products", syncedList);
+              localStorage.setItem("paopao_products", JSON.stringify(syncedList));
+              setProducts(syncedList);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (products). Using local offline storage.");
@@ -1144,11 +1169,12 @@ export default function App() {
 
   const handleAddProduct = (productData: Omit<Product, 'id' | 'salesVolume'>) => {
     const newId = `P-${Date.now()}`;
-    const newProduct: Product = {
+    const rawProduct: Product = {
       ...productData,
       id: newId,
       salesVolume: 0,
     };
+    const newProduct = syncProductImages(rawProduct);
     const updated = [newProduct, ...products];
     setProducts(updated);
     setStoredData("paopao_products", updated);
@@ -1157,12 +1183,13 @@ export default function App() {
   };
 
   const handleEditProduct = (updatedProduct: Product) => {
-    const updated = products.map(p => p.id === updatedProduct.id ? updatedProduct : p);
+    const syncedProduct = syncProductImages(updatedProduct);
+    const updated = products.map(p => p.id === syncedProduct.id ? syncedProduct : p);
     setProducts(updated);
     setStoredData("paopao_products", updated);
     syncFromLocalStorage();
-    const isPending = updatedProduct.status === 'pending';
-    alert(`แก้ไขข้อมูลสินค้า "${updatedProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!${isPending ? ' เนื่องจากคุณแก้ไขในฐานะผู้ขาย สถานะสินค้าจึงถูกปรับเป็น "รออนุมัติใหม่" เพื่อให้แอดมินตรวจสอบความถูกต้องอีกครั้งก่อนวางจำหน่ายค่ะ ⏳' : ''}`);
+    const isPending = syncedProduct.status === 'pending';
+    alert(`แก้ไขข้อมูลสินค้า "${syncedProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ!${isPending ? ' เนื่องจากคุณแก้ไขในฐานะผู้ขาย สถานะสินค้าจึงถูกปรับเป็น "รออนุมัติใหม่" เพื่อให้แอดมินตรวจสอบความถูกต้องอีกครั้งก่อนวางจำหน่ายค่ะ ⏳' : ''}`);
   };
 
   const handleRequestWithdrawal = (amount: number) => {
@@ -1191,42 +1218,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative antialiased selection:bg-red-500 selection:text-white">
       
-      {firestoreQuotaExceeded && (
-        <div id="firestore-quota-warning-banner" className="bg-amber-500 text-amber-950 px-4 py-3 shadow-md border-b border-amber-600 transition-all duration-300">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs md:text-sm font-medium">
-            <div className="flex items-start md:items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-900 shrink-0 mt-0.5 md:mt-0" />
-              <span>
-                <strong>⚠️ โหมดใช้งานออฟไลน์อัตโนมัติ (Offline-First Local Storage):</strong> ขออภัยด้วยค่ะ ปัจจุบันสิทธิ์การเขียนข้อมูลของระบบคลาวด์รายวัน (Firestore Write Quota) เต็มชั่วคราว ระบบจึงได้เปลี่ยนเข้าสู่โหมดออฟไลน์เพื่อความปลอดภัย ข้อมูลของท่านจะได้รับการบันทึกอยู่ในเครื่องของท่านอย่างสมบูรณ์ และคุณยังสามารถลบสินค้า, แก้ไขราคา, และทำรายการทุกฟีเจอร์ได้ตามปกติ 100% ค่ะ
-              </span>
-            </div>
-            <div className="flex items-center gap-3 shrink-0 self-end md:self-auto">
-              <a 
-                href="https://console.firebase.google.com/project/gen-lang-client-0631640025/firestore/databases/ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb/data?openUpgradeDialog=true" 
-                target="_blank" 
-                rel="noreferrer"
-                className="bg-amber-950/15 hover:bg-amber-950/25 text-amber-950 px-3 py-1.5 rounded-md border border-amber-950/20 text-xs flex items-center gap-1 transition-colors font-semibold"
-              >
-                จัดการแผนบริการ 🔗
-              </a>
-              <button 
-                onClick={handleRetryFirestoreConnection}
-                disabled={isConnectingCloud}
-                className={`bg-amber-900 hover:bg-amber-950 text-white px-3 py-1.5 rounded-md text-xs font-semibold shadow-sm transition-colors cursor-pointer flex items-center gap-1 ${isConnectingCloud ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {isConnectingCloud ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                    กำลังทดสอบและซิงก์...
-                  </>
-                ) : (
-                  "ลองเชื่อมต่อใหม่"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Firestore Quota warning banner has been removed per user instruction */}
 
       {/* GLOBAL BRANDING HEADER */}
       <Header 
@@ -1343,11 +1335,12 @@ export default function App() {
               }
             }}
             onUpdateProducts={(updated) => { 
-              const currentIds = new Set(updated.map(p => p.id));
+              const syncedUpdated = updated.map(syncProductImages);
+              const currentIds = new Set(syncedUpdated.map(p => p.id));
               const deletedProducts = products.filter(p => !currentIds.has(p.id));
               
-              setProducts(updated); 
-              setStoredData("paopao_products", updated); 
+              setProducts(syncedUpdated); 
+              setStoredData("paopao_products", syncedUpdated); 
 
               if (deletedProducts.length > 0) {
                 import("firebase/firestore").then(({ doc, deleteDoc }) => {
