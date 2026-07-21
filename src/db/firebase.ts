@@ -15,8 +15,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
 export const storage = getStorage(app);
-storage.maxUploadRetryTime = 4000; // 4 seconds max upload retry limit
-storage.maxOperationRetryTime = 4000; // 4 seconds max operation retry limit
+storage.maxUploadRetryTime = 30000; // 30 seconds max upload retry limit (extremely reliable)
+storage.maxOperationRetryTime = 30000; // 30 seconds max operation retry limit
 export const auth = getAuth(app);
 
 // Sign in anonymously to authenticate the session for Firebase Storage and Firestore rules
