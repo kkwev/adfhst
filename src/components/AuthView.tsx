@@ -149,6 +149,7 @@ export default function AuthView({ settings, users, onLoginSuccess, onRegisterSu
       wallet: 0, // initially 0
       avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${name}`,
       isOrderEnabled: registerRole === 'Merchant' ? false : true,
+      createdAt: new Date().toISOString(),
     };
 
     setSuccessText('สมัครสมาชิกสำเร็จเรียบร้อยแล้ว!');
