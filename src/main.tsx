@@ -87,46 +87,15 @@ localStorage.setItem = function(key, value) {
           } catch (err) {}
         }
 
-        // 3. หลังจากทำความสะอาดประวัติอื่นๆ แล้ว ให้ลองบันทึกคีย์ปัจจุบันใหม่อีกครั้งอย่างปลอดภัย
-        let processedValue = value;
-        if (key === "paopao_products") {
-          try {
-            let products = JSON.parse(value);
-            if (Array.isArray(products)) {
-              products = products.map((p: any) => {
-                const hasBase64 = (p.image && p.image.startsWith("data:")) || (p.images && p.images.some((img: string) => img && img.startsWith("data:")));
-                if (hasBase64) {
-                  const fallbackUrl = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400";
-                  const newImage = (p.image && p.image.startsWith("data:")) ? fallbackUrl : p.image;
-                  let newImages = (p.images || []).map((img: string) => {
-                    if (img && img.startsWith("data:")) {
-                      return fallbackUrl;
-                    }
-                    return img;
-                  });
-                  // Align first image
-                  if (newImages.length === 0) {
-                    newImages = [newImage];
-                  } else {
-                    newImages[0] = newImage;
-                  }
-                  return { ...p, image: newImage, images: newImages };
-                }
-                return p;
-              });
-              processedValue = JSON.stringify(products);
-            }
-          } catch (pErr) {}
-        }
-
+        // 3. หลังจากทำความสะอาดประวัติอื่นๆ แล้ว ให้ลองบันทึกคีย์ปัจจุบันใหม่อีกครั้งอย่างปลอดภัย โดยไม่ดัดแปลงหรือทำลายภาพสินค้าจริงที่ผู้ใช้ตั้งใจบันทึก
         try {
-          originalSetItem.call(localStorage, key, processedValue);
+          originalSetItem.call(localStorage, key, value);
           console.log(`✅ [localStorage] กู้คืนพื้นที่เบราว์เซอร์สำเร็จและบันทึกคีย์ "${key}" สำเร็จแล้วค่ะ`);
         } catch (retryError2) {
           // If still failing, attempt atomic write by removing key first
           localStorage.removeItem(key);
           try {
-            originalSetItem.call(localStorage, key, processedValue);
+            originalSetItem.call(localStorage, key, value);
           } catch (retryError3) {
             console.error("❌ [localStorage] พื้นที่เต็มเกินความจุจำกัดสูงสุด 5MB ของเบราว์เซอร์แล้วจริง ๆ:", retryError3);
           }
