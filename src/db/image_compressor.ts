@@ -125,7 +125,7 @@ export async function uploadImageToCloud(file: File): Promise<string> {
 
       const storageRef = ref(storage, `products/${Date.now()}_${cleanFilename}`);
       
-      // Wrap upload and URL retrieval in a 4.5-second hard timeout
+      // Wrap upload and URL retrieval in a 30-second hard timeout
       const uploadWithTimeout = async () => {
         const snapshot = await uploadBytes(storageRef, blob, {
           contentType: "image/jpeg"
@@ -134,7 +134,7 @@ export async function uploadImageToCloud(file: File): Promise<string> {
       };
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Firebase Storage upload timed out")), 4500)
+        setTimeout(() => reject(new Error("Firebase Storage upload timed out")), 30000)
       );
 
       const downloadUrl = await Promise.race([uploadWithTimeout(), timeoutPromise]);
