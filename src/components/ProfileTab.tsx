@@ -694,7 +694,7 @@ export default function ProfileTab({
     setDepositSlipBase64('');
 
     setTimeout(() => {
-      alert(`ส่งรหัสแจ้งฝากเงิน [${nextIdVal}] ยอดเงิน ${amountVal.toLocaleString()} THB สำเร็จเรียบร้อยแล้วค่ะ! รอแอดมินตรวจบัญชีโอนสลิปและกดยืนยันเครดิตจ้า 🥳`);
+      alert(`ทำรายการฝากเงินจำนวน ${amountVal.toLocaleString()} บาท THB แล้ว [${nextIdVal}] รอระบบทำรายการตรวจสอบและปรับยอดเงินเข้าสู่กระเป๋าเงินของท่านอัตโนมัติค่ะ💰`);
     }, 100);
   };
 
