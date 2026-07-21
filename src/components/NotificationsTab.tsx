@@ -30,7 +30,17 @@ export default function NotificationsTab({
   // Filter notifications relevant to current user: either target "all" or specific user's ID
   const relevantList = notifications
     .filter(notif => {
-      return notif.userId === 'all' || (currentUser && notif.userId === currentUser.id);
+      const isRelevant = notif.userId === 'all' || (currentUser && notif.userId === currentUser.id);
+      if (!isRelevant) return false;
+
+      // When registering a new account, do not show historical system alerts that happened before registration
+      if (currentUser) {
+        const userCreatedAt = currentUser.createdAt || "2026-06-01T00:00:00Z";
+        if (new Date(notif.createdAt).getTime() < new Date(userCreatedAt).getTime()) {
+          return false;
+        }
+      }
+      return true;
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
