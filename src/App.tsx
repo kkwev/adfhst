@@ -74,6 +74,44 @@ export default function App() {
   const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(false);
   const [isConnectingCloud, setIsConnectingCloud] = useState<boolean>(false);
 
+  // Initial loading splash screen state
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
+
+  // Manage splash screen fade out after app loads
+  useEffect(() => {
+    // Gracefully fade out static splash from index.html
+    const staticSplash = document.getElementById('initial-splash');
+    if (staticSplash) {
+      staticSplash.style.opacity = '0';
+      setTimeout(() => {
+        try {
+          staticSplash.remove();
+        } catch (e) {}
+      }, 500);
+    }
+
+    const finishLoading = () => {
+      setTimeout(() => {
+        setIsFadingOut(true);
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, 500);
+      }, 600);
+    };
+
+    if (document.readyState === 'complete') {
+      finishLoading();
+    } else {
+      window.addEventListener('load', finishLoading);
+      const fallbackTimer = setTimeout(finishLoading, 1800);
+      return () => {
+        window.removeEventListener('load', finishLoading);
+        clearTimeout(fallbackTimer);
+      };
+    }
+  }, []);
+
   // Intercept any click on buttons/interactive elements when user is not logged in to redirect instantly
   useEffect(() => {
     if (currentUser || activeTab === 'login') return;
@@ -1383,6 +1421,38 @@ export default function App() {
         ordersCount={currentUser ? orders.filter(o => o.customerId === currentUser.id && o.status !== 'completed' && o.status !== 'cancelled').length : 0}
         settings={settings}
       />
+
+      {/* DYNAMIC FULLSCREEN INITIAL LOADING OVERLAY (SUNLIGHT SHIMMER SEPHORA) */}
+      {isAppLoading && (
+        <div 
+          className={`fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
+            isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="relative flex flex-col items-center text-center px-4">
+            {/* Soft sunlight golden aura blur background */}
+            <div className="absolute w-[280px] h-[90px] bg-gradient-to-r from-amber-500/20 via-yellow-300/35 to-amber-500/20 rounded-full blur-2xl animate-pulse pointer-events-none" />
+            
+            {/* Shimmering SEPHORA Sunlight Text */}
+            <h1 className="text-4xl sm:text-5xl font-black tracking-[0.35em] pl-[0.35em] animate-sunlight-text drop-shadow-[0_0_25px_rgba(254,240,138,0.25)] font-display">
+              SEPHORA
+            </h1>
+            
+            <p className="text-[11px] font-semibold tracking-[0.2em] text-white/50 uppercase mt-2.5">
+              SEPHORA THAILAND
+            </p>
+
+            {/* Animated metallic sunlight loader bar */}
+            <div className="relative w-36 h-[2px] bg-white/15 overflow-hidden rounded-full mt-6">
+              <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-yellow-200 to-transparent animate-[bar-move_1.5s_ease-in-out_infinite]" />
+            </div>
+
+            <p className="text-[10px] font-medium text-white/40 mt-3">
+              กำลังโหลดข้อมูลและเตรียมระบบพร้อมใช้งาน...
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   );
