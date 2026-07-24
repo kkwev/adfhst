@@ -983,7 +983,7 @@ export default function ProfileTab({
                   </div>
                   <div>
                     <span className="text-xs font-black text-gray-800 font-display block">แดชบอร์ดสินค้าของร้านฉัน (My Products)</span>
-                    <p className="text-[10px] text-indigo-600 font-medium">จัดการสินค้า แก้ไขรายละเอียด และความเคลื่อนไหวคลังสินค้า</p>
+                    <p className="text-[10px] text-indigo-600 font-medium">สินค้ารออนุมัติการฝากขาย</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1114,8 +1114,8 @@ export default function ProfileTab({
               ← ออกจากแชตบริการ
             </button>
             <div className="text-right">
-              <span className="text-[11px] font-black text-gray-800 block">แชตสตรีทบริการลูกค้า 24 ชม.</span>
-              <span className="text-[9px] text-teal-600 font-extrabold block">● แอดมินสแตนด์บายออนไลน์</span>
+              <span className="text-[11px] font-black text-gray-800 block">Chat Support</span>
+              <span className="text-[9px] text-teal-600 font-extrabold block">● Online</span>
             </div>
           </div>
 
@@ -1123,7 +1123,7 @@ export default function ProfileTab({
             {myChats.length === 0 ? (
               <div className="text-center py-12 flex flex-col items-center">
                 <span className="text-lg">📱</span>
-                <p className="text-[10px] font-black text-gray-400 mt-1">ยินดีต้อนรับเข้าแชตสด!พิมพ์คำถามและระบบแนบภาพหลักฐานได้เลยจ้า</p>
+                <p className="text-[10px] font-black text-gray-400 mt-1">ยินดีต้อนรับเข้าสู่ระบบแชทฝ่ายซัพพอร์ตสมาชิก พิมพ์คำถามและข้อสงสัยในแชทได้เลยค่ะ</p>
               </div>
             ) : (
               myChats.map((chat, idx) => {
