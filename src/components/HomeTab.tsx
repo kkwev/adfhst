@@ -353,17 +353,9 @@ export default function HomeTab({
 
     if (!matchesCategory) return false;
 
-    // Normal customers only see 'approved' products (and not closed/paused ones)
-    if (!currentUser) return p.status === 'approved';
-    if (currentUser.role === 'Customer') return p.status === 'approved';
-    
-    // Merchant can see their own listings
-    if (currentUser.role === 'Merchant') {
-      return p.status === 'approved' || p.merchantId === currentUser.id;
-    }
-
-    // Admin can see everything
-    return true;
+    // The main home page MUST strictly display ONLY approved products (status === 'approved') for ALL users!
+    // Unapproved or pending products will not be displayed on the home page feed.
+    return p.status === 'approved';
   });
 
   // Pagination calculations
