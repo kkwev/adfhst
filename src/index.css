@@ -35,6 +35,24 @@
   animation-play-state: paused;
 }
 
+@keyframes sunlight-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes bar-move {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.animate-sunlight-text {
+  background: linear-gradient(110deg, #ffffff 15%, #fef08a 40%, #ffffff 50%, #fef08a 60%, #ffffff 85%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: sunlight-shimmer 2s linear infinite;
+}
+
 /* Custom safe area padding for bottom tab navigations */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
