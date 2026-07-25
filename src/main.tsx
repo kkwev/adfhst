@@ -4,31 +4,71 @@ import App from './App';
 import './index.css';
 
 // Monkey-patch localStorage.setItem to gracefully handle and recover from QuotaExceededError (5MB browser limit)
-const originalSetItem = localStorage.setItem;
+const memoryStorageMap = new Map<string, string>();
 
-localStorage.setItem = function(key, value) {
+const originalSetItem = localStorage.setItem;
+const originalGetItem = localStorage.getItem;
+const originalRemoveItem = localStorage.removeItem;
+
+localStorage.getItem = function(key: string) {
   try {
-    // 1. ลองบันทึกข้อมูลแบบปกติและสมบูรณ์ที่สุดก่อน (เพื่อไม่ทำลายรูปภาพที่ผู้ใช้ตั้งใจอัปโหลดจริง)
-    // Try to write the raw unmodified value first to preserve custom uploaded images perfectly!
+    const val = originalGetItem.call(localStorage, key);
+    if (val !== null) return val;
+  } catch (e) {}
+  return memoryStorageMap.get(key) || null;
+};
+
+localStorage.removeItem = function(key: string) {
+  try {
+    originalRemoveItem.call(localStorage, key);
+  } catch (e) {}
+  memoryStorageMap.delete(key);
+};
+
+// Helper to strip/optimize heavy base64 strings from data structures when quota is tight
+function pruneHeavyBase64Data(obj: any): any {
+  if (!obj) return obj;
+  if (typeof obj === 'string') {
+    if (obj.startsWith('data:image/') && obj.length > 25000) {
+      // Replace oversized base64 with a lightweight stock image fallback
+      return "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=300";
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => pruneHeavyBase64Data(item));
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const k of Object.keys(obj)) {
+      cleaned[k] = pruneHeavyBase64Data(obj[k]);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+localStorage.setItem = function(key: string, value: string) {
+  memoryStorageMap.set(key, value); // Always store in memory fallback
+  try {
+    // 1. Try normal unmodified write
     originalSetItem.call(localStorage, key, value);
   } catch (e: any) {
     const isQuotaError = 
-      e instanceof DOMException && (
+      (e instanceof DOMException && (
         e.name === "QuotaExceededError" ||
         e.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
         e.code === 22 ||
         e.code === 1014
-      ) || (e && (e.name === "QuotaExceededError" || e.message?.includes("quota") || e.message?.includes("Quota")));
+      )) || (e && (e.name === "QuotaExceededError" || String(e.message || e).toLowerCase().includes("quota")));
 
     if (isQuotaError) {
-      console.warn("⚠️ [localStorage] พื้นที่จัดเก็บเบราว์เซอร์เต็ม (Quota Exceeded)! กำลังทำความสะอาดข้อมูลประวัติและข้อมูลที่ไม่จำเป็นเพื่อคืนพื้นที่...");
+      console.warn(`⚠️ [localStorage] Storage space limit reached. Cleaning non-critical history to save key "${key}"...`);
       try {
-        // 1. ลบประวัติบันทึกการกระทำของระบบ (Non-critical action logs) ที่กินพื้นที่เยอะออกไปก่อน
-        try {
-          localStorage.removeItem("paopao_online_actions_log");
-        } catch (err) {}
+        // 1. Remove non-critical action logs
+        try { originalRemoveItem.call(localStorage, "paopao_online_actions_log"); } catch (err) {}
 
-        // 2. ทำความสะอาดประวัติการทำรายการเก่าๆ (Keep only recent records and strip processed large images)
+        // 2. Prune old history arrays
         const arraysToPrune = [
           { key: "paopao_chats", max: 10, stripImage: true },
           { key: "paopao_notifications", max: 10, stripImage: false },
@@ -39,16 +79,13 @@ localStorage.setItem = function(key, value) {
 
         for (const item of arraysToPrune) {
           try {
-            const raw = localStorage.getItem(item.key);
+            const raw = originalGetItem.call(localStorage, item.key);
             if (raw) {
               let parsed = JSON.parse(raw);
               if (Array.isArray(parsed)) {
-                // เก็บไว้เฉพาะรายการที่ใหม่ที่สุดตามขีดจำกัดสูงสุด
                 if (parsed.length > item.max) {
                   parsed = parsed.slice(-item.max);
                 }
-
-                // ลดขนาดรูปภาพในประวัติเก่าๆ
                 if (item.stripImage) {
                   if (item.key === "paopao_chats") {
                     parsed = parsed.map((c: any) => ({
@@ -57,8 +94,6 @@ localStorage.setItem = function(key, value) {
                     }));
                   } else if (item.key === "paopao_deposits") {
                     parsed = parsed.map((d: any) => {
-                      // สลิปที่อนุมัติหรือปฏิเสธแล้ว ไม่จำเป็นต้องเก็บรูปจริงไว้ในเครื่องถาวร (ลบออกเพื่อเซฟพื้นที่)
-                      // แต่สลิปที่ 'pending' (รอตรวจสอบ) ต้องคงไว้ห้ามลบเด็ดขาด!
                       if (d.status !== "pending" && d.slipImage && d.slipImage.startsWith("data:")) {
                         return { ...d, slipImage: "" };
                       }
@@ -87,24 +122,35 @@ localStorage.setItem = function(key, value) {
           } catch (err) {}
         }
 
-        // 3. หลังจากทำความสะอาดประวัติอื่นๆ แล้ว ให้ลองบันทึกคีย์ปัจจุบันใหม่อีกครั้งอย่างปลอดภัย โดยไม่ดัดแปลงหรือทำลายภาพสินค้าจริงที่ผู้ใช้ตั้งใจบันทึก
+        // 3. Try writing key again after freeing up space
         try {
           originalSetItem.call(localStorage, key, value);
-          console.log(`✅ [localStorage] กู้คืนพื้นที่เบราว์เซอร์สำเร็จและบันทึกคีย์ "${key}" สำเร็จแล้วค่ะ`);
-        } catch (retryError2) {
-          // If still failing, attempt atomic write by removing key first
-          localStorage.removeItem(key);
+          return;
+        } catch (retryErr1) {
+          // 4. If still failing, prune heavy base64 data directly from the value being saved
           try {
-            originalSetItem.call(localStorage, key, value);
-          } catch (retryError3) {
-            console.error("❌ [localStorage] พื้นที่เต็มเกินความจุจำกัดสูงสุด 5MB ของเบราว์เซอร์แล้วจริง ๆ:", retryError3);
+            const parsedValue = JSON.parse(value);
+            const prunedValue = JSON.stringify(pruneHeavyBase64Data(parsedValue));
+            originalSetItem.call(localStorage, key, prunedValue);
+            return;
+          } catch (retryErr2) {
+            // 5. Atomic fallback: remove key first then set pruned value
+            try {
+              originalRemoveItem.call(localStorage, key);
+              const parsedValue = JSON.parse(value);
+              const prunedValue = JSON.stringify(pruneHeavyBase64Data(parsedValue));
+              originalSetItem.call(localStorage, key, prunedValue);
+              return;
+            } catch (retryErr3) {
+              console.warn(`[localStorage] Safely operating in memory mode for key "${key}".`);
+            }
           }
         }
       } catch (retryError) {
-        console.warn("❌ [localStorage] ไม่สามารถกู้คืนพื้นที่ได้สำเร็จ:", retryError);
+        console.warn(`[localStorage] Operating in memory fallback mode for key "${key}".`);
       }
     } else {
-      throw e;
+      console.warn(`[localStorage] setItem exception for "${key}". Saved to memory storage.`);
     }
   }
 };
