@@ -321,7 +321,11 @@ export function getStoredData<T>(key: string, defaultVal: T): T {
 
 // Save back to localStorage
 export function setStoredData<T>(key: string, value: T): void {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`setStoredData storage warning for "${key}":`, e);
+  }
   if (externalSyncCallback) {
     try {
       externalSyncCallback(key, value);
@@ -364,12 +368,14 @@ export function logOnlineAction(
     
     logs.unshift(newLog); // newer first
     
-    // Cap logs at 1000 items to avoid running out of localstorage space
-    if (logs.length > 1000) {
-      logs.splice(1000);
+    // Cap logs at 50 items to avoid running out of localstorage space
+    if (logs.length > 50) {
+      logs.splice(50);
     }
     
-    localStorage.setItem("paopao_online_actions_log", JSON.stringify(logs));
+    try {
+      localStorage.setItem("paopao_online_actions_log", JSON.stringify(logs));
+    } catch (e) {}
     
     // Dispatch a custom event so components can listen to changes immediately
     window.dispatchEvent(new CustomEvent("paopao_online_action_logged", { detail: newLog }));
