@@ -101,8 +101,8 @@ export function base64ToBlob(base64: string): Blob {
  */
 export async function uploadImageToCloud(file: File): Promise<string> {
   try {
-    // 1. Fast, highly-optimized local image compression (600px max, 0.65 JPEG quality) -> ~15-25KB, completes in <50ms
-    const compressedBase64 = await compressImage(file, 600, 0.65);
+    // 1. Fast, highly-optimized local image compression (380px max, 0.55 JPEG quality) -> ~10-18KB, completes in <30ms
+    const compressedBase64 = await compressImage(file, 380, 0.55);
     if (!compressedBase64 || !compressedBase64.startsWith("data:image/")) {
       return compressedBase64 || "";
     }
