@@ -979,7 +979,12 @@ export default function AdminPanel({
     if (!editingCatalogProduct) return;
 
     // Align option stocks with edited totalStock
-    const alignedProduct = { ...editingCatalogProduct };
+    const alignedProduct = { 
+      ...editingCatalogProduct,
+      status: editingCatalogProduct.status || 'approved',
+      category: editingCatalogProduct.category || 'APPAREL'
+    };
+
     if (alignedProduct.options && alignedProduct.options.length > 0) {
       alignedProduct.options = alignedProduct.options.map(opt => ({
         ...opt,
@@ -992,9 +997,9 @@ export default function AdminPanel({
 
     // Ensure the images array has the updated main image as its first element
     if (!alignedProduct.images || alignedProduct.images.length === 0) {
-      alignedProduct.images = [alignedProduct.image];
+      alignedProduct.images = alignedProduct.image ? [alignedProduct.image] : [];
     } else {
-      alignedProduct.images = [alignedProduct.image, ...alignedProduct.images.slice(1)];
+      alignedProduct.images = [alignedProduct.image, ...alignedProduct.images.filter(i => i !== alignedProduct.image)];
     }
 
     const updated = products.map(p => {
@@ -2466,7 +2471,7 @@ export default function AdminPanel({
                 <form onSubmit={handleSaveCatalogProductCentral} onPaste={handleFormPaste} className="bg-slate-50 border border-slate-350 p-5 rounded-3xl space-y-4 text-xs animate-slide-up">
                   <span className="font-black text-[#FF1E27] block border-b pb-1.5 text-xs">✏️ แอดมินแก้ไขข้อมูลสินค้า: ID {editingCatalogProduct.id}</span>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500">ชื่อสินค้า (Product Name)</label>
                       <input
@@ -2486,6 +2491,40 @@ export default function AdminPanel({
                         value={editingCatalogProduct.price || ''}
                         onChange={(e) => setEditingCatalogProduct({ ...editingCatalogProduct, price: Number(e.target.value) })}
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500">สถานะขายบนหน้าหลัก (Product Status)</label>
+                      <select
+                        className="w-full border bg-white rounded-xl p-2.5 text-xs font-bold text-teal-700 focus:outline-none"
+                        value={editingCatalogProduct.status || 'approved'}
+                        onChange={(e) => setEditingCatalogProduct({ ...editingCatalogProduct, status: e.target.value as any })}
+                      >
+                        <option value="approved">เปิดขายปกติ (Active / Approved - แสดงหน้าแรกทันที)</option>
+                        <option value="pending">รอการอนุมัติ (Pending)</option>
+                        <option value="paused">ปิดขายชั่วคราว (Paused)</option>
+                        <option value="rejected">ปฏิเสธ/ระงับ (Rejected)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500">หมวดหมู่สินค้า (Product Category)</label>
+                      <select
+                        className="w-full border bg-white rounded-xl p-2.5 text-xs font-bold focus:outline-none"
+                        value={editingCatalogProduct.category || 'APPAREL'}
+                        onChange={(e) => setEditingCatalogProduct({ ...editingCatalogProduct, category: e.target.value })}
+                      >
+                        {(settingsCategories && settingsCategories.length > 0 ? settingsCategories : [
+                          { key: 'APPAREL', label: 'เสื้อผ้าแฟชั่น', icon: '👕' },
+                          { key: 'BEAUTY', label: 'ความงามและเครื่องสำอาง', icon: '💄' },
+                          { key: 'BAGS', label: 'กระเป๋าแฟชั่น', icon: '👜' },
+                          { key: 'CAPS', label: 'หมวกแฟชั่น', icon: '🧢' },
+                          { key: 'TUMBLER', label: 'แก้วน้ำและแก้วเก็บเย็น', icon: '🥤' }
+                        ]).map(cat => (
+                          <option key={cat.key} value={cat.key}>{cat.icon} {cat.label} ({cat.key})</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500">สต็อกทั้งหมด (Total Stock)</label>
