@@ -353,9 +353,8 @@ export default function HomeTab({
 
     if (!matchesCategory) return false;
 
-    // The main home page MUST strictly display ONLY approved products (status === 'approved') for ALL users!
-    // Unapproved or pending products will not be displayed on the home page feed.
-    return p.status === 'approved';
+    // Display approved products (status === 'approved' or missing status)
+    return !p.status || p.status === 'approved' || (p.status as string) === 'active';
   });
 
   // Pagination calculations
@@ -667,11 +666,15 @@ export default function HomeTab({
     e.preventDefault();
     if (!editingProduct) return;
 
-    // Align option stocks with edited totalStock
+    // Align option stocks with edited totalStock and sync images
     const alignedProduct = { 
       ...editingProduct,
       status: (editingProduct.status || 'approved') as any
     };
+    const mainImg = (alignedProduct.image || '').trim();
+    const existingImgs = (alignedProduct.images || []).map(i => (typeof i === 'string' ? i.trim() : '')).filter(Boolean);
+    const otherImgs = existingImgs.filter(i => i !== mainImg);
+    alignedProduct.images = mainImg ? [mainImg, ...otherImgs] : otherImgs;
     if (alignedProduct.options && alignedProduct.options.length > 0) {
       alignedProduct.options = alignedProduct.options.map(opt => ({
         ...opt,
