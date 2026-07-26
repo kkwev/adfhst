@@ -32,27 +32,25 @@ interface CartItem {
   selectedOptions: { [category: string]: string };
 }
 
-// Helper function to keep main product image and the first item of the additional images list 100% in sync
+// Helper function to keep main product image and the additional images list 100% in sync
 function syncProductImages(p: Product): Product {
   if (!p) return p;
-  const images = p.images ? [...p.images] : [];
-  let mainImage = p.image || '';
+  let mainImage = (p.image || '').trim();
+  let rawImages = Array.isArray(p.images) 
+    ? p.images.map(i => (typeof i === 'string' ? i.trim() : '')).filter(Boolean) 
+    : [];
 
   if (mainImage) {
-    if (images.length === 0) {
-      images.push(mainImage);
-    } else if (images[0] !== mainImage) {
-      // If the main image is different from the first image in the list, update the first image to match the main image
-      images[0] = mainImage;
-    }
-  } else if (images.length > 0) {
-    mainImage = images[0];
+    const otherImages = rawImages.filter(img => img !== mainImage);
+    rawImages = [mainImage, ...otherImages];
+  } else if (rawImages.length > 0) {
+    mainImage = rawImages[0];
   }
 
   return {
     ...p,
     image: mainImage,
-    images: images.filter(Boolean)
+    images: rawImages
   };
 }
 
@@ -1215,6 +1213,8 @@ export default function App() {
     const newProduct = syncProductImages(rawProduct);
     const updated = [newProduct, ...products];
     setProducts(updated);
+    saveToFirestore("paopao_products", updated);
+    updateFirestoreCache("paopao_products", updated);
     setStoredData("paopao_products", updated);
     syncFromLocalStorage();
     alert(`เพิ่มสินค้า "${newProduct.name}" สำเร็จเรียบร้อยแล้วค่ะ! ขณะนี้สินค้าถูกส่งไปยังระบบหลังบ้านเพื่อรอแอดมินอนุมัติก่อนวางจำหน่ายจริงในหน้าแรกค่ะ ⏳✨`);
@@ -1224,6 +1224,8 @@ export default function App() {
     const syncedProduct = syncProductImages(updatedProduct);
     const updated = products.map(p => p.id === syncedProduct.id ? syncedProduct : p);
     setProducts(updated);
+    saveToFirestore("paopao_products", updated);
+    updateFirestoreCache("paopao_products", updated);
     setStoredData("paopao_products", updated);
     syncFromLocalStorage();
     const isPending = syncedProduct.status === 'pending';
@@ -1378,6 +1380,8 @@ export default function App() {
               const deletedProducts = products.filter(p => !currentIds.has(p.id));
               
               setProducts(syncedUpdated); 
+              saveToFirestore("paopao_products", syncedUpdated);
+              updateFirestoreCache("paopao_products", syncedUpdated);
               setStoredData("paopao_products", syncedUpdated); 
 
               if (deletedProducts.length > 0) {
