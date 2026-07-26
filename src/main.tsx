@@ -29,7 +29,7 @@ localStorage.removeItem = function(key: string) {
 function pruneHeavyBase64Data(obj: any): any {
   if (!obj) return obj;
   if (typeof obj === 'string') {
-    if (obj.startsWith('data:image/') && obj.length > 25000) {
+    if (obj.startsWith('data:image/') && obj.length > 300000) {
       // Replace oversized base64 with a lightweight stock image fallback
       return "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=300";
     }
