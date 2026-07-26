@@ -258,6 +258,17 @@ export async function saveToFirestore(key: string, data: any) {
       }
     }
 
+    // 2. Delete items that were removed from local state
+    for (const cachedItem of cached) {
+      if (cachedItem && cachedItem.id && !currentMap.has(cachedItem.id)) {
+        try {
+          await deleteDoc(doc(db, collectionName, cachedItem.id));
+        } catch (delErr) {
+          console.warn(`Error deleting document ${cachedItem.id} from Firestore:`, delErr);
+        }
+      }
+    }
+
     // Keep cache up to date
     dbStateCache[key] = JSON.parse(JSON.stringify(data));
   } catch (error) {
