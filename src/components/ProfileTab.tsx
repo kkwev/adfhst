@@ -464,7 +464,7 @@ export default function ProfileTab({
 
     const productPayload = { 
       ...alignedProduct,
-      status: (currentUser?.role === 'Merchant' ? 'pending' : alignedProduct.status) as any
+      status: (alignedProduct.status || 'approved') as any
     };
     setShowEditModal(false);
     setEditingProduct(null);
@@ -1904,6 +1904,7 @@ export default function ProfileTab({
                   >
                     {currentUser?.role === 'Merchant' ? (
                       <>
+                        <option value="approved">เปิดขายปกติ (Active / Approved)</option>
                         <option value="pending">ส่งเพื่อรอการอนุมัติ (Submit for Approval)</option>
                         <option value="paused">ปิดขายชั่วคราว (Paused)</option>
                       </>
