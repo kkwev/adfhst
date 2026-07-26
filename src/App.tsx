@@ -36,7 +36,7 @@ interface CartItem {
 function syncProductImages(p: Product): Product {
   if (!p) return p;
   const images = p.images ? [...p.images] : [];
-  const mainImage = p.image || '';
+  let mainImage = p.image || '';
 
   if (mainImage) {
     if (images.length === 0) {
@@ -46,12 +46,12 @@ function syncProductImages(p: Product): Product {
       images[0] = mainImage;
     }
   } else if (images.length > 0) {
-    p.image = images[0];
+    mainImage = images[0];
   }
 
   return {
     ...p,
-    image: p.image || mainImage,
+    image: mainImage,
     images: images.filter(Boolean)
   };
 }
