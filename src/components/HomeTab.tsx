@@ -670,7 +670,7 @@ export default function HomeTab({
     // Align option stocks with edited totalStock
     const alignedProduct = { 
       ...editingProduct,
-      status: (currentUser?.role === 'Merchant' ? 'pending' : editingProduct.status) as any
+      status: (editingProduct.status || 'approved') as any
     };
     if (alignedProduct.options && alignedProduct.options.length > 0) {
       alignedProduct.options = alignedProduct.options.map(opt => ({
@@ -1512,6 +1512,7 @@ export default function HomeTab({
                   >
                     {currentUser?.role === 'Merchant' ? (
                       <>
+                        <option value="approved">เปิดขายปกติ (Active / Approved)</option>
                         <option value="pending">ส่งเพื่อรอการอนุมัติ (Submit for Approval)</option>
                         <option value="paused">ปิดขายชั่วคราว (Paused)</option>
                       </>
