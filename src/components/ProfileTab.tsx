@@ -455,12 +455,10 @@ export default function ProfileTab({
     if (!editingProduct) return;
     
     const alignedProduct = { ...editingProduct };
-    // Ensure the images array has the updated main image as its first element
-    if (!alignedProduct.images || alignedProduct.images.length === 0) {
-      alignedProduct.images = [alignedProduct.image];
-    } else {
-      alignedProduct.images = [alignedProduct.image, ...alignedProduct.images.slice(1)];
-    }
+    const mainImg = (alignedProduct.image || '').trim();
+    const existingImgs = (alignedProduct.images || []).map(i => (typeof i === 'string' ? i.trim() : '')).filter(Boolean);
+    const otherImgs = existingImgs.filter(i => i !== mainImg);
+    alignedProduct.images = mainImg ? [mainImg, ...otherImgs] : otherImgs;
 
     const productPayload = { 
       ...alignedProduct,
