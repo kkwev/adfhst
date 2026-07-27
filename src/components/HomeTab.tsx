@@ -1448,7 +1448,7 @@ export default function HomeTab({
 
               {currentUser?.role === 'Merchant' && (
                 <div className="p-3 bg-amber-50 text-amber-700 rounded-xl text-[10px] font-semibold leading-relaxed border border-amber-100">
-                  ⚠️ เรียนท่านพันธมิตรร้านค้า: สินค้าที่ส่งคำขอใหม่นี้จะถูกส่งไปหลังบ้าน PAOPAO รอการอนุมัติ (Approve) โดยแอดมินสูงสุดเป็นสำคัญ จึงจะสามารถวางจัดแสดงที่หน้าแรกได้
+                  ⚠️ เรียน ร้านค้าสมาชิก: รายการสินค้าจะได้รับการตรวจสอบและอนุมัติโดยเจ้าหน้าที่ก่อนเปิดวางจำหน่ายจริงในระบบ ขอบพระคุณในความร่วมมือครับ/ค่ะ
                 </div>
               )}
 
