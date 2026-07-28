@@ -909,76 +909,8 @@ export default function App() {
   };
 
   const handleCancelOrder = (orderId: string) => {
-    const targetOrder = orders.find(o => o.id === orderId);
-    if (!targetOrder) return;
-
-    // Refund wallet funds only if paid via Wallet
-    let newUsers = [...users];
-    if (targetOrder.paymentMethod === 'wallet') {
-      newUsers = newUsers.map(u => {
-        if (u.id === targetOrder.customerId) {
-          return { ...u, wallet: u.wallet + targetOrder.grandTotal };
-        }
-        if (u.id === targetOrder.merchantId) {
-          return { ...u, wallet: Math.max(0, u.wallet - targetOrder.grandTotal) };
-        }
-        return u;
-      });
-    }
-
-    // Update order status to Cancelled
-    const updatedOrders = orders.map(o => {
-      if (o.id === orderId) {
-        return { ...o, status: 'cancelled' as const };
-      }
-      return o;
-    });
-
-    const refundNotification: SystemNotification = {
-      id: `N-REF-${Date.now()}`,
-      userId: targetOrder.customerId,
-      title: "คำสั่งซื้อถูกยกเลิกแล้ว ได้รับเงินคืนเข้า Wallet",
-      message: `คุณได้กดยกเลิกสินค้าพัสดุบิลเลขที่ ${orderId} เรียบร้อยแล้ว ระบบได้ดึงมูลค่าเงินคืนย้อนยอดจำนวน ${targetOrder.grandTotal.toLocaleString()} THB เข้าสู่ Wallet ร้านเป๋าเป่า สำเร็จแล้วจ้า`,
-      isSystemAnnouncement: false,
-      createdAt: new Date().toISOString()
-    };
-
-    const merchantCancelNotification: SystemNotification = {
-      id: `N-REF-MER-${Date.now()}`,
-      userId: targetOrder.merchantId,
-      title: `ใบสั่งซื้อบิล ${orderId} ถูกลูกค้ากดยกเลิกแล้ว ❌`,
-      message: `มีรายการยกเลิกใหม่: ลูกค้าได้ทำการกดยกเลิกสิทธิ์คำสั่งซื้อ เลขบิลคู่สัญญา ${orderId} และเรียกเงินดึงระบบคืนเข้าเป๋า Wallet บัญชีเขาจำนวน ${targetOrder.grandTotal.toLocaleString()} THB เรียบร้อยแล้วค่ะ`,
-      isSystemAnnouncement: false,
-      createdAt: new Date().toISOString()
-    };
-
-    const newNotifs = [refundNotification, merchantCancelNotification, ...notifications];
-
-    setOrders(updatedOrders);
-    setUsers(newUsers);
-    setNotifications(newNotifs);
-
-    setStoredData("paopao_orders", updatedOrders);
-    setStoredData("paopao_users", newUsers);
-    setStoredData("paopao_notifications", newNotifs);
-
-    logOnlineAction(
-      "orders",
-      "ยกเลิกคำสั่งซื้อ",
-      `ยกเลิกคำสั่งซื้อเลขบิล ${orderId} และเรียกคืนเงินเข้า Wallet จำนวน ${targetOrder.grandTotal.toLocaleString()} บาท`,
-      currentUser ? `${currentUser.name} (${currentUser.id})` : "ระบบ"
-    );
-
-    // Sync session user
-    if (currentUser) {
-      const updatedSess = newUsers.find(u => u.id === currentUser.id);
-      if (updatedSess) {
-        setCurrentUser(updatedSess);
-        localStorage.setItem("paopao_session_user", JSON.stringify(updatedSess));
-      }
-    }
-
-    alert('กดยกเลิกรายการสั่งซื้อบิล และ ดึงยอดคืน Wallet ของคุณเสร็จสิ้นเรียบร้อย!');
+    alert("คำสั่งซื้อดังกล่าวไม่สามารถยกเลิกได้เนื่องจากร้านค้าดังกล่าวเป็นร้านค้าใหม่ โปรดติดต่อผู้ขายด้วยตัวท่านเอง ขอบคุณค่ะ");
+    return;
   };
 
   const handleMarkReceived = (orderId: string) => {
