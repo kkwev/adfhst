@@ -68,13 +68,13 @@ localStorage.setItem = function(key: string, value: string) {
         // 1. Remove non-critical action logs
         try { originalRemoveItem.call(localStorage, "paopao_online_actions_log"); } catch (err) {}
 
-        // 2. Prune old history arrays
+        // 2. Optimize image data in history arrays without deleting any transaction or notification records
         const arraysToPrune = [
-          { key: "paopao_chats", max: 10, stripImage: true },
-          { key: "paopao_notifications", max: 10, stripImage: false },
-          { key: "paopao_orders", max: 15, stripImage: true },
-          { key: "paopao_withdrawals", max: 10, stripImage: false },
-          { key: "paopao_deposits", max: 10, stripImage: true }
+          { key: "paopao_chats", stripImage: true },
+          { key: "paopao_notifications", stripImage: false },
+          { key: "paopao_orders", stripImage: true },
+          { key: "paopao_withdrawals", stripImage: false },
+          { key: "paopao_deposits", stripImage: true }
         ];
 
         for (const item of arraysToPrune) {
@@ -83,9 +83,6 @@ localStorage.setItem = function(key: string, value: string) {
             if (raw) {
               let parsed = JSON.parse(raw);
               if (Array.isArray(parsed)) {
-                if (parsed.length > item.max) {
-                  parsed = parsed.slice(-item.max);
-                }
                 if (item.stripImage) {
                   if (item.key === "paopao_chats") {
                     parsed = parsed.map((c: any) => ({
