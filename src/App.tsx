@@ -1412,13 +1412,6 @@ export default function App() {
         notificationCount={currentUser ? notifications.filter(notif => {
           const isRelevant = notif.userId === 'all' || notif.userId === currentUser.id;
           if (!isRelevant) return false;
-          
-          // Do not count historical notifications before account registration
-          const userCreatedAt = currentUser.createdAt || "2026-06-01T00:00:00Z";
-          if (new Date(notif.createdAt).getTime() < new Date(userCreatedAt).getTime()) {
-            return false;
-          }
-
           const readBy = notif.readBy || [];
           return !readBy.includes(currentUser.id);
         }).length : 0}
