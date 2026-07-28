@@ -202,8 +202,7 @@ export default function OrdersTab({
                     <button
                       id={`cancel-order-btn-${ord.id}`}
                       onClick={() => {
-                        const yes = window.confirm("คุณต้องการกดยกเลิกสินค้าพัสดุชิ้นนี้ และขอคืนเงินใช่หรือไม่?");
-                        if (yes) onCancelOrder(ord.id);
+                        alert("คำสั่งซื้อดังกล่าวไม่สามารถยกเลิกได้เนื่องจากร้านค้าดังกล่าวเป็นร้านค้าใหม่ โปรดติดต่อผู้ขายด้วยตัวท่านเอง ขอบคุณค่ะ");
                       }}
                       className="px-4 py-2 border border-rose-200 hover:bg-rose-50 rounded-xl text-[10px] font-extrabold text-rose-600 transition-colors"
                     >
