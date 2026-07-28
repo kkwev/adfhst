@@ -110,16 +110,13 @@ export default function CartTab({
     setAppliedDiscount(0);
 
     const codeClean = couponCode.trim().toUpperCase();
-    if (codeClean === "WELCOMEPAOPAO") {
+    if (codeClean === "WELCOMESEPHORA" || codeClean === "WELCOMEPAOPAO") {
       if (subtotalSelected < 500) {
         setCouponFeedback("โค้ดนี้ใช้ได้เมื่อช้อปยอดสิ้นค้าขั้นต่ำ 500 บาทขึ้นไป");
       } else {
         setAppliedDiscount(50);
-        setCouponFeedback("ประยุกต์ใช้โค้ด WELCOMEPAOPAO: ลดทันที 50 บาท!");
+        setCouponFeedback("ประยุกต์ใช้โค้ด WELCOMESEPHORA: ลดทันที 50 บาท!");
       }
-    } else if (codeClean === "PAOPAOFREE") {
-      setAppliedDiscount(100);
-      setCouponFeedback("ประยุกต์ใช้โค้ดลดระบายของ: ลดทันที 100 บาท!");
     } else if (codeClean) {
       setCouponFeedback("ไม่พบรหัสคูปองส่วนลดนี้ หรือหมดอายุการใช้งานแล้ว");
     }
@@ -145,7 +142,7 @@ export default function CartTab({
       return;
     }
     if (payMethod === 'wallet' && userWalletBalance < grandTotal) {
-      alert(`ยอดเงินในกระเป๋าไม่เพียงพอ (ยอดเงินคงเหลือ: ${userWalletBalance.toLocaleString()} THB) กรุณาใช้ช่องทางเก็บเงินปลายทาง หรือเติมเงินผ่านแอดมินค่ะ`);
+      alert(`ยอดเงินในกระเป๋าไม่เพียงพอ (ยอดเงินคงเหลือ: ${userWalletBalance.toLocaleString()} THB) กรุณาเติมเงินผ่านแอดมินก่อนทำรายการสั่งซื้อค่ะ`);
       return;
     }
 
@@ -464,45 +461,19 @@ export default function CartTab({
           <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
             <h3 className="text-sm font-black text-gray-800 uppercase tracking-wider block font-display mb-2 flex items-center gap-1.5">
               <CreditCard size={16} className="text-[#FF1E27]" />
-              ช่องทางชำระเงินที่ต้องการ (Payment Methods)
+              ช่องทางชำระเงินที่ต้องการ (Payment Method)
             </h3>
 
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPayMethod('wallet')}
-                className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${
-                  payMethod === 'wallet' 
-                    ? 'border-red-500 bg-red-50/50 outline-2 outline-red-500 shadow-sm shadow-red-100' 
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-xs font-black text-gray-800">1. หักกระเป๋าเงินระบบ</span>
-                  <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-ping" style={{ display: payMethod === 'wallet' ? 'block' : 'none' }}></div>
+            <div className="p-4 rounded-2xl border border-red-500 bg-red-50/50 outline-2 outline-red-500 shadow-sm shadow-red-100 flex items-center justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-gray-800">Wallet</span>
                 </div>
-                <div>
-                  <span className="text-[10px] font-bold text-gray-400 block leading-none">Wallet balance:</span>
-                  <span className="text-xs font-black font-mono text-rose-600">
-                    {userWalletBalance.toLocaleString()} THB
-                  </span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setPayMethod('cod')}
-                className={`p-4 rounded-2xl border text-left flex flex-col justify-between h-24 transition-all ${
-                  payMethod === 'cod' 
-                    ? 'border-red-500 bg-red-50/50 outline-2 outline-red-500 shadow-sm shadow-red-100' 
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <span className="text-xs font-black text-gray-800">2. เก็บเงินปลายทาง (COD)</span>
-                <span className="text-[10px] font-bold text-gray-400 leading-tight">
-                  จ่ายเงินกับเจ้าหน้าที่ในพื้นที่จัดส่ง
+                <span className="text-[10px] font-bold text-gray-500 block">
+                  ยอดเงินคงเหลือในกระเป๋า: <span className="font-mono text-rose-600 font-black text-xs">{userWalletBalance.toLocaleString()} THB</span>
                 </span>
-              </button>
+              </div>
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
             </div>
           </div>
 
@@ -515,7 +486,7 @@ export default function CartTab({
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="ป้อนรหัส เช่น WELCOMEPAOPAO, PAOPAOFREE"
+                placeholder="ป้อนรหัส เช่น WELCOMESEPHORA"
                 className="flex-1 bg-gray-50 border rounded-xl p-2.5 text-xs font-bold uppercase tracking-wide focus:outline-none focus:border-red-500"
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
@@ -583,7 +554,7 @@ export default function CartTab({
             {/* Trust assurances for final payment checkout processes */}
             <div className="pt-3 flex gap-2 items-center text-[10px] text-teal-600 font-bold bg-teal-50 px-3.5 py-2.5 rounded-xl border border-teal-100 border-dashed">
               <ShieldCheck size={16} className="shrink-0 text-teal-600" />
-              <span>PAOPAO Security SSL: บัญชีและยอดถอนของคุณจะได้รับการรับประกันโดยสมบูรณ์</span>
+              <span>Sephora Thailand Security SSL: บัญชีและยอดถอนของคุณจะได้รับการรับประกันโดยสมบูรณ์</span>
             </div>
 
             {/* Form actions */}
