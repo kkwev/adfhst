@@ -535,8 +535,8 @@ export default function ProfileTab({
   // --- WALLET TRANSACTIONS PROCESSING ---
   // To present a cohesive transaction log, we show both APPROVED withdrawals and general deposit history logs.
   // We can query user-specific withdrawal records for S00001, plus simulate static deposit actions.
-  const myWithdrawals = withdrawals.filter(w => w.merchantId === currentUser.id);
-  const myDeposits = (deposits || []).filter(d => d.userId === currentUser.id);
+  const myWithdrawals = withdrawals.filter(w => w.merchantId === currentUser.id || (w as any).userId === currentUser.id || (currentUser.phone && w.merchantPhone === currentUser.phone));
+  const myDeposits = (deposits || []).filter(d => d.userId === currentUser.id || (currentUser.phone && d.userPhone === currentUser.phone));
 
   // Aggregate simulated transactions list (Only for demo/seeded users; reset to empty [] for newly registered accounts)
   const isSeedUser = ["A00001", "A00002", "S00001", "S00002", "M00001", "M00002"].includes(currentUser?.id);
