@@ -1690,7 +1690,7 @@ export default function HomeTab({
               </div>
 
               {/* Simple stock & sales Volume updater */}
-              <div className="grid grid-cols-2 gap-4 bg-rose-50 border-rose-100 border p-3 rounded-2xl">
+              <div className={`grid ${currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin' ? 'grid-cols-2' : 'grid-cols-1'} gap-4 bg-rose-50 border-rose-100 border p-3 rounded-2xl`}>
                 <div>
                   <span className="text-[11px] font-black text-rose-700 block mb-1">📦 อัปเดตสต็อกรวม</span>
                   <input
@@ -1701,29 +1701,18 @@ export default function HomeTab({
                     onChange={(e) => setEditingProduct({ ...editingProduct, totalStock: Number(e.target.value) })}
                   />
                 </div>
-                <div>
-                  <span className="text-[11px] font-black text-emerald-700 block mb-1">📈 ยอดจำหน่ายสะสม</span>
-                  <input
-                    type="number"
-                    min="0"
-                    disabled={currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin'}
-                    readOnly={currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin'}
-                    className={`border text-emerald-800 rounded-xl py-1.5 px-3 uppercase text-xs font-black w-full font-mono ${
-                      currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin'
-                        ? 'bg-white'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
-                    }`}
-                    value={editingProduct.salesVolume || 0}
-                    onChange={(e) => {
-                      if (currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin') {
-                        setEditingProduct({ ...editingProduct, salesVolume: Math.max(0, Number(e.target.value)) });
-                      }
-                    }}
-                  />
-                  {currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin' && (
-                    <span className="text-[9px] text-gray-400 font-bold block mt-1">* เฉพาะแอดมินเท่านั้นที่สามารถแก้ไขยอดจำหน่ายสะสมได้</span>
-                  )}
-                </div>
+                {(currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin') && (
+                  <div>
+                    <span className="text-[11px] font-black text-emerald-700 block mb-1">📈 ยอดจำหน่ายสะสม</span>
+                    <input
+                      type="number"
+                      min="0"
+                      className="bg-white border text-emerald-800 rounded-xl py-1.5 px-3 uppercase text-xs font-black w-full font-mono"
+                      value={editingProduct.salesVolume || 0}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, salesVolume: Math.max(0, Number(e.target.value)) })}
+                    />
+                  </div>
+                )}
               </div>
               <span className="text-[9px] text-gray-450 text-gray-400 block mt-1">
                 * หมายเหตุทางระบบ : หากตัวเลือกของสต็อกหมด ลูกค้าจะไม่สามารถทำรายการหยิบของในหน้านั้นได้
