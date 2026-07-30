@@ -666,11 +666,17 @@ export default function HomeTab({
     e.preventDefault();
     if (!editingProduct) return;
 
+    const originalProd = products.find(p => p.id === editingProduct.id);
     // Align option stocks with edited totalStock and sync images
     const alignedProduct = { 
       ...editingProduct,
       status: (editingProduct.status || 'approved') as any
     };
+
+    if (currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin' && originalProd) {
+      alignedProduct.salesVolume = originalProd.salesVolume ?? 0;
+    }
+
     const mainImg = (alignedProduct.image || '').trim();
     const existingImgs = (alignedProduct.images || []).map(i => (typeof i === 'string' ? i.trim() : '')).filter(Boolean);
     const otherImgs = existingImgs.filter(i => i !== mainImg);
@@ -1700,10 +1706,23 @@ export default function HomeTab({
                   <input
                     type="number"
                     min="0"
-                    className="bg-white border text-emerald-800 rounded-xl py-1.5 px-3 uppercase text-xs font-black w-full font-mono"
+                    disabled={currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin'}
+                    readOnly={currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin'}
+                    className={`border text-emerald-800 rounded-xl py-1.5 px-3 uppercase text-xs font-black w-full font-mono ${
+                      currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin'
+                        ? 'bg-white'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200'
+                    }`}
                     value={editingProduct.salesVolume || 0}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, salesVolume: Math.max(0, Number(e.target.value)) })}
+                    onChange={(e) => {
+                      if (currentUser?.role === 'Admin' || currentUser?.role === 'SuperAdmin') {
+                        setEditingProduct({ ...editingProduct, salesVolume: Math.max(0, Number(e.target.value)) });
+                      }
+                    }}
                   />
+                  {currentUser?.role !== 'Admin' && currentUser?.role !== 'SuperAdmin' && (
+                    <span className="text-[9px] text-gray-400 font-bold block mt-1">* เฉพาะแอดมินเท่านั้นที่สามารถแก้ไขยอดจำหน่ายสะสมได้</span>
+                  )}
                 </div>
               </div>
               <span className="text-[9px] text-gray-450 text-gray-400 block mt-1">
