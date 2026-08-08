@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Bell, Sparkles, MessageCircle, Calendar, ShieldAlert } from 'lucide-react';
+import { Bell, MessageCircle, ShieldAlert } from 'lucide-react';
 import { SystemNotification, User, SystemSettings } from '../types';
 
 interface NotificationsTabProps {
@@ -24,12 +24,12 @@ export default function NotificationsTab({
   onMarkAsRead,
   onMarkAllAsRead
 }: NotificationsTabProps) {
-  const themePrimary = settings.themeColor || '#FF1E27';
-  const themeGradientEnd = settings.themeGradientEnd || '#FF5E62';
-
   // Filter notifications relevant to current user: either target "all" or specific user's ID
   const relevantList = notifications
     .filter(notif => {
+      // Exclude default seed announcements (welcome, maintenance notices)
+      if (notif.isSystemAnnouncement || notif.id === 'N00001' || notif.id === 'N00002') return false;
+      if (notif.title?.includes('ยินดีต้อนรับ') || notif.title?.includes('ปิดปรับปรุง')) return false;
       return notif.userId === 'all' || (currentUser && notif.userId === currentUser.id);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -79,50 +79,6 @@ export default function NotificationsTab({
             });
 
             const isUnread = currentUser && (!notif.readBy || !notif.readBy.includes(currentUser.id));
-
-            // If it is a System Announcement, render extra HIGHLIGHTED neon red gradients and custom styles,
-            // HIDING any reference to 'System Announcement' / 'การแจ้งเตือนจากระบบ' labels!
-            if (notif.isSystemAnnouncement) {
-              return (
-                <div
-                  key={notif.id}
-                  id={`notif-${notif.id}`}
-                  onClick={() => {
-                    if (isUnread) onMarkAsRead(notif.id);
-                  }}
-                  className={`rounded-2xl p-5 shadow-sm border text-white relative overflow-hidden flex flex-col gap-2.5 transition active:scale-[0.98] cursor-pointer ${
-                    isUnread ? 'ring-2 ring-yellow-400 ring-offset-2 ring-offset-white' : 'opacity-85'
-                  }`}
-                  style={{ 
-                    backgroundImage: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)`,
-                    borderColor: themePrimary,
-                    boxShadow: `0 4px 18px ${themePrimary}20`
-                  }}
-                >
-                  {/* Glowing dynamic background decorative symbols */}
-                  <div className="absolute -top-6 -right-6 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
-
-                  <div className="flex justify-between items-start">
-                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest font-display text-yellow-300 bg-black/30 px-2.5 py-0.5 rounded-full border border-yellow-300/20">
-                      <Sparkles size={10} className="fill-yellow-300" />
-                      SPECIAL NOTIFICATION BULLETIN {isUnread && "🔴 (NEW)"}
-                    </span>
-                    <span className="text-[9px] font-bold opacity-80 font-mono flex items-center gap-1 text-white">
-                      <Calendar size={10} /> {dateStr}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1">
-                    <h3 className="text-xs sm:text-sm font-black tracking-tight drop-shadow-sm leading-snug">
-                      {notif.title}
-                    </h3>
-                    <p className="text-[11px] font-medium leading-relaxed opacity-95 text-red-50">
-                      {notif.message}
-                    </p>
-                  </div>
-                </div>
-              );
-            }
 
             // Normal Notification (e.g., customized push or transaction notifications)
             const customBgColor = notif.highlightColor || '#ffffff';
