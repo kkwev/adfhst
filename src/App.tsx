@@ -1342,6 +1342,8 @@ export default function App() {
         onNavigate={(tab) => setActiveTab(tab)} 
         cartCount={cart.reduce((a, b) => a + b.quantity, 0)}
         notificationCount={currentUser ? notifications.filter(notif => {
+          if (notif.isSystemAnnouncement || notif.id === 'N00001' || notif.id === 'N00002') return false;
+          if (notif.title?.includes('ยินดีต้อนรับ') || notif.title?.includes('ปิดปรับปรุง')) return false;
           const isRelevant = notif.userId === 'all' || notif.userId === currentUser.id;
           if (!isRelevant) return false;
           const readBy = notif.readBy || [];
