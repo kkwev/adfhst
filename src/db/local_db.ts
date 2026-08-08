@@ -105,24 +105,7 @@ export const SEED_USERS: User[] = [
 
 export const SEED_PRODUCTS: Product[] = [];
 
-export const SEED_NOTIFICATIONS: SystemNotification[] = [
-  {
-    id: "N00001",
-    userId: "all",
-    title: "ยินดีต้อนรับสู่ PAOPAO แฟลตฟอร์มช้อปปิ้งสตรีทแวร์แนวใหม่!",
-    message: "แจกโค้ดส่วนลดต้อนรับสมาชิกใหม่ลดทันที 50 บาทเมื่อช้อปครบ 500 บาท ใช้โค้ด: WELCOMESEPHORA สมัครบัญชีใช้งานด่วนวันนี้ ช้อปง่าย ส่งไว ปลอดภัย 100%",
-    isSystemAnnouncement: true,
-    createdAt: "2026-06-20T10:00:00Z"
-  },
-  {
-    id: "N00003",
-    userId: "M00001",
-    title: "เติมเงินสำเร็จ",
-    message: "คุณได้ทำการเติมเงินเข้าสู่กระเป๋าตังค์ PAOPAO Wallet จำนวน 1,500 บาท เรียบร้อยแล้ว ขอให้มีความสุขกับการช้อปปิ้งออนไลน์",
-    isSystemAnnouncement: false,
-    createdAt: "2026-06-20T14:30:00Z"
-  }
-];
+export const SEED_NOTIFICATIONS: SystemNotification[] = [];
 
 export const SEED_ORDERS: Order[] = [
   {
