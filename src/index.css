@@ -35,6 +35,41 @@
   animation-play-state: paused;
 }
 
+@keyframes text-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer-loading {
+  background: linear-gradient(
+    90deg,
+    #111827 0%,
+    #dc2626 25%,
+    #f43f5e 50%,
+    #dc2626 75%,
+    #111827 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 2s linear infinite;
+}
+
+.animate-shimmer-subtext {
+  background: linear-gradient(
+    90deg,
+    #4b5563 0%,
+    #e11d48 30%,
+    #fb7185 50%,
+    #e11d48 70%,
+    #4b5563 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 2s linear infinite;
+}
+
 @keyframes sunlight-shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
