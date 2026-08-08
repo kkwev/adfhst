@@ -922,10 +922,20 @@ export default function HomeTab({
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm p-8 flex flex-col items-center">
-            <Tag size={48} className="text-gray-300 stroke-[1.2] mb-3" />
-            <p className="text-sm font-bold text-gray-500">ไม่พบสินค้าในระบบ ณ ขณะนี้</p>
-            <p className="text-xs text-gray-400 mt-1">ลองเปลี่ยนคำค้นหา หรือรอให้แอดมินอัปเดตอนุมัติโพสต์เพิ่มค่ะ</p>
+          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm p-8 flex flex-col items-center justify-center min-h-[260px]">
+            <div className="relative mb-4 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-full border-2 border-red-100 border-t-red-600 border-r-rose-500 animate-spin"></div>
+              <span className="absolute text-xl font-black font-serif text-red-600 animate-spin select-none tracking-tighter">
+                S
+              </span>
+            </div>
+            
+            <h3 className="text-base sm:text-lg font-black uppercase tracking-widest font-display animate-shimmer-loading mb-1">
+              SEPHORA LOADING....
+            </h3>
+            <p className="text-xs sm:text-sm font-bold animate-shimmer-subtext tracking-wide">
+              โปรดรอสักครู่ กำลังโหลด...
+            </p>
           </div>
         ) : (
           <>
