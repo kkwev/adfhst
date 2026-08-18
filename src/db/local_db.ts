@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, OnlineActionLog } from '../types';
+import { User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, OnlineActionLog, DepositRequest } from '../types';
+import { saveItemsToIndexedDB } from './indexed_db';
 
 // Default initial data to seed the application
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -270,6 +271,9 @@ export function initializeDB() {
   if (!localStorage.getItem("paopao_withdrawals")) {
     localStorage.setItem("paopao_withdrawals", JSON.stringify(SEED_WITHDRAWALS));
   }
+  if (!localStorage.getItem("paopao_deposits")) {
+    localStorage.setItem("paopao_deposits", JSON.stringify([]));
+  }
   if (!localStorage.getItem("paopao_settings")) {
     localStorage.setItem("paopao_settings", JSON.stringify(DEFAULT_SETTINGS));
   }
@@ -299,16 +303,37 @@ export function registerExternalSync(cb: (key: string, value: any) => void) {
 export function getStoredData<T>(key: string, defaultVal: T): T {
   const data = localStorage.getItem(key);
   if (!data) return defaultVal;
-  return JSON.parse(data) as T;
+  try {
+    return JSON.parse(data) as T;
+  } catch (e) {
+    return defaultVal;
+  }
 }
 
-// Save back to localStorage
+// Save back to localStorage and mirror to IndexedDB for zero data loss
 export function setStoredData<T>(key: string, value: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
     console.warn(`setStoredData storage warning for "${key}":`, e);
   }
+
+  // Mirror to IndexedDB permanent store
+  if (Array.isArray(value)) {
+    const storeMap: Record<string, string> = {
+      "paopao_deposits": "deposits",
+      "paopao_withdrawals": "withdrawals",
+      "paopao_orders": "orders",
+      "paopao_users": "users",
+      "paopao_notifications": "notifications",
+      "paopao_chats": "chats"
+    };
+    const storeName = storeMap[key];
+    if (storeName) {
+      saveItemsToIndexedDB(storeName, value).catch(() => {});
+    }
+  }
+
   if (externalSyncCallback) {
     try {
       externalSyncCallback(key, value);
