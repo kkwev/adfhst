@@ -482,12 +482,6 @@ export default function ProfileTab({
     return (products || []).filter(p => p.merchantId === currentUser?.id);
   }, [products, currentUser]);
 
-  // Wallet history pagination & filter state
-  const [txPage, setTxPage] = useState(1);
-  const [txFilter, setTxFilter] = useState<'all' | 'deposit' | 'withdrawal' | 'payment'>('all');
-  const [txSearch, setTxSearch] = useState('');
-  const [txItemsPerPage, setTxItemsPerPage] = useState<number>(25);
-
   // Deposit form state
   const [showDepositPopup, setShowDepositPopup] = useState(false);
   const [depositAmountInput, setDepositAmountInput] = useState(0);
@@ -669,63 +663,6 @@ export default function ProfileTab({
     const timeB = (b as any).rawTimestamp || new Date(b.date).getTime() || 0;
     return timeB - timeA;
   });
-
-  // Filter & Search processing
-  const filteredTxs = allTxs.filter(tx => {
-    if (txFilter === 'deposit' && tx.type !== 'deposit') return false;
-    if (txFilter === 'withdrawal' && tx.type !== 'withdrawal') return false;
-    if (txFilter === 'payment' && tx.type !== 'payment') return false;
-
-    if (txSearch.trim() !== '') {
-      const q = txSearch.toLowerCase().trim();
-      const matchId = (tx.id || '').toLowerCase().includes(q);
-      const matchNote = (tx.note || '').toLowerCase().includes(q);
-      const matchAmount = (tx.amount || '').toString().includes(q);
-      const matchDate = (tx.date || '').toLowerCase().includes(q);
-      if (!matchId && !matchNote && !matchAmount && !matchDate) return false;
-    }
-    return true;
-  });
-
-  // Aggregate statistics for user summary
-  const totalDepositsSum = allTxs
-    .filter(t => t.type === 'deposit' && (t.note === 'ดำเนินการเสร็จสิ้น' || t.note.includes('Order')))
-    .reduce((acc, t) => acc + (t.amount || 0) + ((t as any).bonus || 0), 0);
-
-  const totalWithdrawalsSum = allTxs
-    .filter(t => t.type === 'withdrawal' && t.note === 'ดำเนินการเสร็จสิ้น')
-    .reduce((acc, t) => acc + (t.amount || 0), 0);
-
-  const totalPaymentsSum = allTxs
-    .filter(t => t.type === 'payment')
-    .reduce((acc, t) => acc + (t.amount || 0), 0);
-
-  // Pagination calculation
-  const itemsPerPage = txItemsPerPage === 0 ? Math.max(1, filteredTxs.length) : txItemsPerPage;
-  const totalPages = txItemsPerPage === 0 ? 1 : Math.max(1, Math.ceil(filteredTxs.length / itemsPerPage));
-  const effectivePage = Math.min(txPage, totalPages);
-  const currentTxs = txItemsPerPage === 0 ? filteredTxs : filteredTxs.slice((effectivePage - 1) * itemsPerPage, effectivePage * itemsPerPage);
-
-  const handleExportTransactions = () => {
-    const exportData = {
-      user: {
-        id: currentUser.id,
-        name: currentUser.name,
-        phone: currentUser.phone,
-        wallet: currentUser.wallet
-      },
-      exportedAt: new Date().toISOString(),
-      totalRecords: allTxs.length,
-      transactions: allTxs
-    };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `SEPHORA_TX_LOG_${currentUser.id}_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  };
 
   const handleFileChangeForDeposit = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -988,7 +925,7 @@ export default function ProfileTab({
 
               <button
                 type="button"
-                onClick={() => { setProfileView('wallet_history'); setTxPage(1); }}
+                onClick={() => setProfileView('wallet_history')}
                 className="text-center text-[10px] font-bold text-red-300 hover:text-white underline mt-1"
               >
                 ดูประวัติทำรายการธุรกรรม
@@ -1102,7 +1039,7 @@ export default function ProfileTab({
         </div>
       ) : profileView === 'wallet_history' ? (
         // --- TRANSACTIONS LOGS VIEW ---
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex justify-between items-center border-b pb-2">
             <button 
               onClick={() => setProfileView('index')}
@@ -1118,130 +1055,19 @@ export default function ProfileTab({
             </div>
           </div>
 
-          {/* Aggregate Overview Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gradient-to-br from-gray-50 to-gray-100/70 p-3 rounded-2xl border border-gray-200/80">
-            <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-xs">
-              <span className="text-[9px] font-bold text-gray-400 block">รายการทั้งหมด</span>
-              <span className="text-sm font-black font-mono text-gray-800">{allTxs.length.toLocaleString()} รายการ</span>
-            </div>
-            <div className="bg-white p-2.5 rounded-xl border border-teal-100 shadow-xs">
-              <span className="text-[9px] font-bold text-teal-600 block">ยอดฝากสะสม</span>
-              <span className="text-sm font-black font-mono text-teal-600">+{totalDepositsSum.toLocaleString()} ฿</span>
-            </div>
-            <div className="bg-white p-2.5 rounded-xl border border-rose-100 shadow-xs">
-              <span className="text-[9px] font-bold text-rose-600 block">ยอดถอนสำเร็จ</span>
-              <span className="text-sm font-black font-mono text-rose-600">-{totalWithdrawalsSum.toLocaleString()} ฿</span>
-            </div>
-            <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-xs">
-              <span className="text-[9px] font-bold text-amber-600 block">ยอดชำระ Order</span>
-              <span className="text-sm font-black font-mono text-amber-600">-{totalPaymentsSum.toLocaleString()} ฿</span>
-            </div>
-          </div>
-
-          {/* Filter Bar & Search */}
-          <div className="space-y-2">
-            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              <button
-                onClick={() => { setTxFilter('all'); setTxPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
-                  txFilter === 'all' 
-                    ? 'bg-gray-900 text-white shadow-xs' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                ทั้งหมด ({allTxs.length})
-              </button>
-              <button
-                onClick={() => { setTxFilter('deposit'); setTxPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
-                  txFilter === 'deposit' 
-                    ? 'bg-teal-600 text-white shadow-xs' 
-                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
-                }`}
-              >
-                ฝากเงิน ({allTxs.filter(t => t.type === 'deposit').length})
-              </button>
-              <button
-                onClick={() => { setTxFilter('withdrawal'); setTxPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
-                  txFilter === 'withdrawal' 
-                    ? 'bg-rose-600 text-white shadow-xs' 
-                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                }`}
-              >
-                ถอนเงิน ({allTxs.filter(t => t.type === 'withdrawal').length})
-              </button>
-              <button
-                onClick={() => { setTxFilter('payment'); setTxPage(1); }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
-                  txFilter === 'payment' 
-                    ? 'bg-amber-600 text-white shadow-xs' 
-                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                }`}
-              >
-                ชำระเงิน ({allTxs.filter(t => t.type === 'payment').length})
-              </button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
-              <div className="relative w-full sm:w-64">
-                <input 
-                  type="text"
-                  placeholder="ค้นหา Transaction ID หรือ ยอดเงิน..."
-                  value={txSearch}
-                  onChange={(e) => { setTxSearch(e.target.value); setTxPage(1); }}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900"
-                />
-                {txSearch && (
-                  <button 
-                    onClick={() => { setTxSearch(''); setTxPage(1); }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-gray-500 font-bold">แสดง:</span>
-                  <select 
-                    value={txItemsPerPage}
-                    onChange={(e) => { setTxItemsPerPage(Number(e.target.value)); setTxPage(1); }}
-                    className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-[10px] font-bold text-gray-700 focus:outline-none"
-                  >
-                    <option value={10}>10 รายการ</option>
-                    <option value={25}>25 รายการ</option>
-                    <option value={50}>50 รายการ</option>
-                    <option value={100}>100 รายการ</option>
-                    <option value={0}>แสดงทั้งหมด</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleExportTransactions}
-                  className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-[10px] font-bold text-gray-700 rounded-lg flex items-center gap-1 border border-gray-200 transition-colors"
-                  title="ดาวน์โหลดประวัติธุรกรรมทั้งหมดเพื่อสำรองข้อมูล"
-                >
-                  📥 สำรองข้อมูล
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {filteredTxs.length === 0 ? (
+          {allTxs.length === 0 ? (
             <div className="bg-white p-8 rounded-2xl border border-gray-100 text-center shadow-sm">
               <span className="text-2xl block mb-1">📜</span>
-              <p className="text-xs text-gray-500 font-bold">ไม่พบรายการธุรกรรมตามเงื่อนไขที่ค้นหา</p>
+              <p className="text-xs text-gray-500 font-bold">ยังไม่มีรายการธุรกรรมใดๆ ในขณะนี้</p>
               <p className="text-[10px] text-gray-400 mt-1">ประวัติธุรกรรมทั้งหมดจะถูกจัดเก็บถาวรและไม่ถูกลบหายไปค่ะ</p>
             </div>
           ) : (
             <div className="space-y-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
               <div className="px-2 py-1 flex justify-between text-[10px] font-bold text-gray-400 border-b border-gray-50">
-                <span>แสดง {currentTxs.length} จาก {filteredTxs.length} รายการ</span>
+                <span>ทั้งหมด {allTxs.length} รายการ</span>
                 <span>เรียงตามเวลาล่าสุด</span>
               </div>
-              {currentTxs.map((tx, idx) => (
+              {allTxs.map((tx, idx) => (
                 <div key={(tx as any).uniqueKey || `${tx.type}-${tx.id}-${idx}`} className="flex justify-between items-center p-3 hover:bg-gray-50/80 transition-colors rounded-xl text-xs border border-transparent hover:border-gray-100">
                   <div className="flex items-center gap-2.5">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
@@ -1288,30 +1114,6 @@ export default function ProfileTab({
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-
-          {/* User pagination */}
-          {totalPages > 1 && txItemsPerPage !== 0 && (
-            <div className="flex items-center justify-between pt-3 px-1 border-t border-gray-100">
-              <button
-                disabled={effectivePage === 1}
-                onClick={() => setTxPage(prev => Math.max(1, prev - 1))}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs font-bold rounded-xl disabled:opacity-40 transition-colors text-gray-700"
-              >
-                ← ก่อนหน้า
-              </button>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-bold text-gray-600 font-mono">หน้า {effectivePage} จาก {totalPages}</span>
-                <span className="text-[10px] text-gray-400">({filteredTxs.length} รายการ)</span>
-              </div>
-              <button
-                disabled={effectivePage === totalPages}
-                onClick={() => setTxPage(prev => Math.min(totalPages, prev + 1))}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs font-bold rounded-xl disabled:opacity-40 transition-colors text-gray-700"
-              >
-                ถัดไป →
-              </button>
             </div>
           )}
         </div>
