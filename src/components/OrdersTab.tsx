@@ -57,8 +57,14 @@ export default function OrdersTab({
     );
   }
 
-  // Filter orders where customer is the logged-in current user
-  const userOrders = orders.filter(ord => ord.customerId === currentUser.id);
+  // Filter orders where customer is the logged-in current user and deduplicate by id
+  const userOrderMap = new Map<string, Order>();
+  orders
+    .filter(ord => ord.customerId === currentUser.id)
+    .forEach(ord => {
+      if (ord && ord.id) userOrderMap.set(ord.id, ord);
+    });
+  const userOrders = Array.from(userOrderMap.values());
 
   // Group by current active sub tab
   const filteredOrders = userOrders.filter(ord => ord.status === activeSubTab);
@@ -115,12 +121,12 @@ export default function OrdersTab({
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredOrders.map((ord) => {
+          {filteredOrders.map((ord, oIdx) => {
             const dateStr = formatThaiDateTime(ord.createdAt);
 
             return (
               <div 
-                key={ord.id} 
+                key={`cust-order-${ord.id}-${ord.createdAt || oIdx}`} 
                 id={`customer-order-card-${ord.id}`}
                 className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
               >
