@@ -3,16 +3,16 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { signInAnonymously } from "firebase/auth";
 
 /**
- * Compresses an image file (or base64 string) using HTML5 Canvas to fit within maxDimensions and converts to a lightweight JPEG base64 string.
+ * Compresses an image file (or base64 string) using HTML5 Canvas with high-fidelity smoothing to fit within maxDimensions and converts to a clear JPEG base64 string.
  */
 export function compressImage(
   fileOrBase64: File | string,
-  maxSize: number = 500,
-  quality: number = 0.6
+  maxSize: number = 1200,
+  quality: number = 0.85
 ): Promise<string> {
   return new Promise((resolve) => {
     const processSrc = (src: string) => {
-      // If it's not a data URL or already tiny, just resolve it directly
+      // If it's not a data URL, just resolve it directly
       if (!src.startsWith("data:image/")) {
         resolve(src);
         return;
@@ -26,14 +26,13 @@ export function compressImage(
           let width = img.width;
           let height = img.height;
 
-          if (width > height) {
-            if (width > maxSize) {
-              height *= maxSize / width;
+          // Only downsample if image width or height exceeds maxSize
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = Math.round((height * maxSize) / width);
               width = maxSize;
-            }
-          } else {
-            if (height > maxSize) {
-              width *= maxSize / height;
+            } else {
+              width = Math.round((width * maxSize) / height);
               height = maxSize;
             }
           }
@@ -46,6 +45,10 @@ export function compressImage(
             resolve(src); // Fallback to raw if canvas context is unavailable
             return;
           }
+
+          // Enable high-quality image interpolation smoothing
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
 
           ctx.drawImage(img, 0, 0, width, height);
           const compressed = canvas.toDataURL("image/jpeg", quality);
@@ -95,24 +98,40 @@ export function base64ToBlob(base64: string): Blob {
   return new Blob([uInt8Array], { type: contentType });
 }
 
+export interface UploadImageOptions {
+  maxSize?: number;
+  quality?: number;
+  isBanner?: boolean;
+  folder?: string;
+}
+
 /**
  * Compresses a File, uploads it to Firebase Storage (or fallback cloud services),
- * and returns the public direct HTTPS URL. Falls back to a compressed base64 string on failure.
+ * and returns the public direct HTTPS URL. Falls back to a high-quality compressed base64 string on failure.
  */
-export async function uploadImageToCloud(file: File): Promise<string> {
+export async function uploadImageToCloud(
+  file: File,
+  options?: UploadImageOptions
+): Promise<string> {
+  const isBanner = options?.isBanner || false;
+  // Banners need ultra-crisp resolution (1920px max, 0.90 quality) so promotional slides stay sharp across all screen sizes
+  const maxSize = options?.maxSize ?? (isBanner ? 1920 : 1000);
+  const quality = options?.quality ?? (isBanner ? 0.90 : 0.82);
+  const folder = options?.folder ?? (isBanner ? "banners" : "products");
+
   try {
-    // 1. Fast, highly-optimized local image compression (380px max, 0.55 JPEG quality) -> ~10-18KB, completes in <30ms
-    const compressedBase64 = await compressImage(file, 380, 0.55);
+    // 1. High-quality image compression preserving sharpness and clear details
+    const compressedBase64 = await compressImage(file, maxSize, quality);
     if (!compressedBase64 || !compressedBase64.startsWith("data:image/")) {
       return compressedBase64 || "";
     }
     
-    // 2. Convert to a lightweight Blob for upload
+    // 2. Convert to a Blob for upload
     const blob = base64ToBlob(compressedBase64);
     const filename = file.name || 'image.jpg';
     const cleanFilename = filename.replace(/[^a-zA-Z0-9.]/g, "_");
     
-    // 3. Try uploading to official Firebase Storage with a snappy 2-second timeout
+    // 3. Try uploading to official Firebase Storage with a 3.5-second timeout
     try {
       if (!auth.currentUser) {
         try {
@@ -122,7 +141,7 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         }
       }
 
-      const storageRef = ref(storage, `products/${Date.now()}_${cleanFilename}`);
+      const storageRef = ref(storage, `${folder}/${Date.now()}_${cleanFilename}`);
       
       const uploadWithTimeout = async () => {
         const snapshot = await uploadBytes(storageRef, blob, {
@@ -132,7 +151,7 @@ export async function uploadImageToCloud(file: File): Promise<string> {
       };
 
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Firebase Storage upload timed out")), 2000)
+        setTimeout(() => reject(new Error("Firebase Storage upload timed out")), 3500)
       );
 
       const downloadUrl = await Promise.race([uploadWithTimeout(), timeoutPromise]);
@@ -141,15 +160,15 @@ export async function uploadImageToCloud(file: File): Promise<string> {
         return downloadUrl;
       }
     } catch (firebaseErr) {
-      console.warn("Firebase Storage fast failover to local compressed image:", firebaseErr);
+      console.warn("Firebase Storage fallback to high-quality compressed image:", firebaseErr);
     }
     
-    // 4. Fallback: Instant use of ultra-fast compressed Base64 data URL (<20KB)
+    // 4. Fallback: High-resolution clear base64 image
     return compressedBase64;
   } catch (error) {
     console.error("Upload to cloud failed:", error);
     try {
-      return await compressImage(file, 400, 0.5);
+      return await compressImage(file, isBanner ? 1600 : 800, 0.85);
     } catch (fallbackError) {
       return "";
     }
