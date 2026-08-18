@@ -1748,8 +1748,8 @@ export default function AdminPanel({
                         </td>
                       </tr>
                     ) : (
-                      displayedWithdrawals.map((wReq) => (
-                        <tr key={wReq.id} className="hover:bg-gray-50/50">
+                      displayedWithdrawals.map((wReq, wIdx) => (
+                        <tr key={`adm-with-${wReq.id}-${wIdx}`} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono font-bold text-gray-500">{formatThaiDateTimeStandard(wReq.createdAt)}</td>
                           <td className="p-3 font-bold text-gray-800">
                             {wReq.merchantName} <span className="block text-[9px] text-gray-400 font-mono">Tel: {wReq.merchantPhone}</span>
@@ -1865,7 +1865,7 @@ export default function AdminPanel({
               {totalWithdrawalPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100">
                   <span className="text-[11px] text-gray-500 font-bold">
-                    แสดง {(currentWithdrawalPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentWithdrawalPage * ITEMS_PER_PAGE, withdrawals.length)} จากทั้งหมด {withdrawals.length} รายการ
+                    แสดง {(currentWithdrawalPage - 1) * itemsPerPageFin + 1} ถึง {Math.min(currentWithdrawalPage * itemsPerPageFin, filteredWithdrawals.length)} จากผลการค้นหา {filteredWithdrawals.length} รายการ (ทั้งหมด {withdrawals.length} รายการ)
                   </span>
                   <div className="flex items-center gap-1">
                     <button
@@ -1876,7 +1876,7 @@ export default function AdminPanel({
                     >
                       ย้อนกลับ
                     </button>
-                    {Array.from({ length: totalWithdrawalPages }, (_, i) => i + 1).map((page) => (
+                    {Array.from({ length: Math.min(totalWithdrawalPages, 10) }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
                         type="button"
@@ -1890,6 +1890,9 @@ export default function AdminPanel({
                         {page}
                       </button>
                     ))}
+                    {totalWithdrawalPages > 10 && (
+                      <span className="text-xs text-gray-400 font-bold px-1">... {totalWithdrawalPages}</span>
+                    )}
                     <button
                       type="button"
                       disabled={currentWithdrawalPage === totalWithdrawalPages}
@@ -1969,8 +1972,8 @@ export default function AdminPanel({
                         </td>
                       </tr>
                     ) : (
-                      displayedDeposits.map((dReq) => (
-                        <tr key={dReq.id} className="hover:bg-gray-50/50">
+                      displayedDeposits.map((dReq, dIdx) => (
+                        <tr key={`adm-dep-${dReq.id}-${dIdx}`} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono font-bold text-gray-500">
                             {formatThaiDateTimeStandard(dReq.createdAt)}
                           </td>
@@ -2043,7 +2046,7 @@ export default function AdminPanel({
               {totalDepositPages > 1 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100 mt-4">
                   <span className="text-[11px] text-gray-500 font-bold">
-                    แสดง {(currentDepositPage - 1) * ITEMS_PER_PAGE + 1} ถึง {Math.min(currentDepositPage * ITEMS_PER_PAGE, deposits.length)} จากทั้งหมด {deposits.length} รายการ
+                    แสดง {(currentDepositPage - 1) * itemsPerPageFin + 1} ถึง {Math.min(currentDepositPage * itemsPerPageFin, filteredDeposits.length)} จากผลการค้นหา {filteredDeposits.length} รายการ (ทั้งหมด {(deposits || []).length} รายการ)
                   </span>
                   <div className="flex items-center gap-1">
                     <button
@@ -2054,7 +2057,7 @@ export default function AdminPanel({
                     >
                       ย้อนกลับ
                     </button>
-                    {Array.from({ length: totalDepositPages }, (_, i) => i + 1).map((page) => (
+                    {Array.from({ length: Math.min(totalDepositPages, 10) }, (_, i) => i + 1).map((page) => (
                       <button
                         key={page}
                         type="button"
@@ -2068,6 +2071,9 @@ export default function AdminPanel({
                         {page}
                       </button>
                     ))}
+                    {totalDepositPages > 10 && (
+                      <span className="text-xs text-gray-400 font-bold px-1">... {totalDepositPages}</span>
+                    )}
                     <button
                       type="button"
                       disabled={currentDepositPage === totalDepositPages}
@@ -2352,8 +2358,8 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filteredUsersList.map((usr) => (
-                      <tr key={usr.id} className="hover:bg-gray-50/50">
+                    {filteredUsersList.map((usr, uIdx) => (
+                      <tr key={`adm-usr-${usr.id}-${uIdx}`} className="hover:bg-gray-50/50">
                         <td className="p-3 font-mono font-bold text-gray-600">{usr.id}</td>
                         <td className="p-3 font-bold text-gray-800">{usr.name}</td>
                         <td className="p-3 font-semibold text-gray-700">{usr.phone}</td>
@@ -2823,8 +2829,8 @@ export default function AdminPanel({
                       p.merchantId.toLowerCase().includes(productSearchShop.toLowerCase()) || 
                       p.name.toLowerCase().includes(productSearchShop.toLowerCase()) ||
                       (p.merchantPhone && p.merchantPhone.includes(productSearchShop))
-                    ).map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50/50">
+                    ).map((p, pIdx) => (
+                      <tr key={`adm-prod-${p.id}-${pIdx}`} className="hover:bg-gray-50/50">
                         <td className="p-3 flex items-center gap-2.5">
                           <img src={p.image || undefined} className="w-9 h-9 rounded-lg object-cover bg-gray-50 border" referrerPolicy="no-referrer" />
                           <div>
@@ -3093,10 +3099,10 @@ export default function AdminPanel({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-bold text-gray-700">
-                    {users.filter(u => u.role === 'Merchant').map((merchant) => {
+                    {users.filter(u => u.role === 'Merchant').map((merchant, mIdx) => {
                       const isOrderEnabled = merchant.isOrderEnabled !== false; // defaults to true
                       return (
-                        <tr key={merchant.id} className="hover:bg-gray-50/50">
+                        <tr key={`adm-mer-${merchant.id}-${mIdx}`} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono text-gray-500">{merchant.id}</td>
                           <td className="p-3">
                             <div className="leading-snug">
