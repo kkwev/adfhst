@@ -6,6 +6,7 @@
 import React from 'react';
 import { Bell, MessageCircle, ShieldAlert } from 'lucide-react';
 import { SystemNotification, User, SystemSettings } from '../types';
+import { formatThaiDateTime } from '../utils/thaiTime';
 
 interface NotificationsTabProps {
   notifications: SystemNotification[];
@@ -69,14 +70,7 @@ export default function NotificationsTab({
       ) : (
         <div className="space-y-4">
           {relevantList.map((notif) => {
-            const dateObj = new Date(notif.createdAt);
-            const dateStr = dateObj.toLocaleDateString('th-TH', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            });
+            const dateStr = formatThaiDateTime(notif.createdAt);
 
             const isUnread = currentUser && (!notif.readBy || !notif.readBy.includes(currentUser.id));
 
