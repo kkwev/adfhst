@@ -553,6 +553,7 @@ export default function ProfileTab({
   const mockTransactions = isSeedUser ? [
     { 
       id: "TX-009822", 
+      uniqueKey: "mock-TX-009822",
       type: "deposit", 
       amount: 1500, 
       date: "2026-06-18 10:30", 
@@ -560,6 +561,7 @@ export default function ProfileTab({
     },
     { 
       id: "TX-009411", 
+      uniqueKey: "mock-TX-009411",
       type: "deposit", 
       amount: 500, 
       date: "2026-06-15 14:12", 
@@ -567,6 +569,7 @@ export default function ProfileTab({
     },
     { 
       id: "TX-009210", 
+      uniqueKey: "mock-TX-009210",
       type: "payment", 
       amount: 890, 
       date: "2026-06-18 10:15", 
@@ -586,6 +589,7 @@ export default function ProfileTab({
     
     return {
       id: w.id,
+      uniqueKey: `with-${w.id}`,
       type: "withdrawal",
       amount: w.amount,
       date: formatThaiDateTimeStandard(w.createdAt),
@@ -609,6 +613,7 @@ export default function ProfileTab({
     
     return {
       id: d.id,
+      uniqueKey: `dep-${d.id}`,
       type: "deposit",
       amount: d.amount,
       bonus: d.bonus || 0,
@@ -623,6 +628,7 @@ export default function ProfileTab({
     .filter(o => o.paymentMethod === 'wallet' && o.customerId === currentUser?.id)
     .map(o => ({
       id: o.id,
+      uniqueKey: `order-pay-${o.id}`,
       type: "payment",
       amount: o.grandTotal,
       date: formatThaiDateTimeStandard(o.createdAt),
@@ -631,9 +637,10 @@ export default function ProfileTab({
     }));
 
   const parsedOrderEarnings = (orders || [])
-    .filter(o => o.paymentMethod === 'wallet' && o.merchantId === currentUser?.id)
+    .filter(o => o.paymentMethod === 'wallet' && o.merchantId === currentUser?.id && o.customerId !== currentUser?.id)
     .map(o => ({
       id: o.id,
+      uniqueKey: `order-earn-${o.id}`,
       type: "deposit",
       amount: o.grandTotal,
       date: formatThaiDateTimeStandard(o.createdAt),
@@ -641,13 +648,23 @@ export default function ProfileTab({
       note: "ชำระยอด Order สำเร็จ"
     }));
 
-  const allTxs = [
+  // Combine and deduplicate by uniqueKey
+  const rawTxList = [
     ...mockTransactions, 
     ...parsedWithdrawalTxs, 
     ...parsedDepositTxs,
     ...parsedOrderPayments,
     ...parsedOrderEarnings
-  ].sort((a, b) => {
+  ];
+
+  const uniqueTxMap = new Map<string, typeof rawTxList[0]>();
+  rawTxList.forEach(t => {
+    if (t && t.uniqueKey) {
+      uniqueTxMap.set(t.uniqueKey, t);
+    }
+  });
+
+  const allTxs = Array.from(uniqueTxMap.values()).sort((a, b) => {
     const timeA = (a as any).rawTimestamp || new Date(a.date).getTime() || 0;
     const timeB = (b as any).rawTimestamp || new Date(b.date).getTime() || 0;
     return timeB - timeA;
@@ -1225,7 +1242,7 @@ export default function ProfileTab({
                 <span>เรียงตามเวลาล่าสุด</span>
               </div>
               {currentTxs.map((tx, idx) => (
-                <div key={tx.id || idx} className="flex justify-between items-center p-3 hover:bg-gray-50/80 transition-colors rounded-xl text-xs border border-transparent hover:border-gray-100">
+                <div key={(tx as any).uniqueKey || `${tx.type}-${tx.id}-${idx}`} className="flex justify-between items-center p-3 hover:bg-gray-50/80 transition-colors rounded-xl text-xs border border-transparent hover:border-gray-100">
                   <div className="flex items-center gap-2.5">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                       tx.type === 'deposit' ? 'bg-teal-50 text-teal-600' : tx.type === 'payment' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'
@@ -1639,7 +1656,7 @@ export default function ProfileTab({
 
                 return (
                   <div 
-                    key={ord.id} 
+                    key={`mer-order-${ord.id}-${ord.createdAt || ''}`} 
                     id={`merchant-incoming-card-${ord.id}`}
                     className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-xs space-y-3 animate-fade-in"
                   >
