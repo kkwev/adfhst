@@ -105,9 +105,12 @@ export default function AdminPanel({
   const [editingWithDrawalId, setEditingWithDrawalId] = useState<string | null>(null);
   const [editingWithDrawalAmount, setEditingWithDrawalAmount] = useState<number>(0);
 
-  // Financial Pagination states
+  // Financial Pagination & Search states
   const [withdrawalPage, setWithdrawalPage] = useState(1);
   const [depositPage, setDepositPage] = useState(1);
+  const [financialItemsPerPage, setFinancialItemsPerPage] = useState<number>(25);
+  const [withdrawalSearch, setWithdrawalSearch] = useState('');
+  const [depositSearch, setDepositSearch] = useState('');
 
   // 3. Member Management state
   const [createUserName, setCreateUserName] = useState('');
@@ -166,16 +169,43 @@ export default function AdminPanel({
   const themePrimary = settings.themeColor || '#FF1E27';
   const themeGradientEnd = settings.themeGradientEnd || '#FF5E62';
 
+  // Filtered withdrawals & deposits
+  const filteredWithdrawals = withdrawals.filter(w => {
+    if (!withdrawalSearch.trim()) return true;
+    const q = withdrawalSearch.toLowerCase().trim();
+    return (
+      (w.id || '').toLowerCase().includes(q) ||
+      (w.merchantName || '').toLowerCase().includes(q) ||
+      (w.merchantPhone || '').toLowerCase().includes(q) ||
+      (w.merchantId || '').toLowerCase().includes(q) ||
+      (w.amount || '').toString().includes(q) ||
+      (w.status || '').toLowerCase().includes(q)
+    );
+  });
+
+  const filteredDeposits = (deposits || []).filter(d => {
+    if (!depositSearch.trim()) return true;
+    const q = depositSearch.toLowerCase().trim();
+    return (
+      (d.id || '').toLowerCase().includes(q) ||
+      (d.userName || '').toLowerCase().includes(q) ||
+      (d.userPhone || '').toLowerCase().includes(q) ||
+      (d.userId || '').toLowerCase().includes(q) ||
+      (d.amount || '').toString().includes(q) ||
+      (d.status || '').toLowerCase().includes(q)
+    );
+  });
+
   // Financial Pagination calculations
-  const ITEMS_PER_PAGE = 10;
+  const itemsPerPageFin = financialItemsPerPage === 0 ? Math.max(1, filteredWithdrawals.length, filteredDeposits.length) : financialItemsPerPage;
 
-  const totalWithdrawalPages = Math.ceil(withdrawals.length / ITEMS_PER_PAGE) || 1;
+  const totalWithdrawalPages = financialItemsPerPage === 0 ? 1 : Math.max(1, Math.ceil(filteredWithdrawals.length / itemsPerPageFin));
   const currentWithdrawalPage = Math.min(withdrawalPage, totalWithdrawalPages);
-  const displayedWithdrawals = withdrawals.slice((currentWithdrawalPage - 1) * ITEMS_PER_PAGE, currentWithdrawalPage * ITEMS_PER_PAGE);
+  const displayedWithdrawals = financialItemsPerPage === 0 ? filteredWithdrawals : filteredWithdrawals.slice((currentWithdrawalPage - 1) * itemsPerPageFin, currentWithdrawalPage * itemsPerPageFin);
 
-  const totalDepositPages = Math.ceil((deposits || []).length / ITEMS_PER_PAGE) || 1;
+  const totalDepositPages = financialItemsPerPage === 0 ? 1 : Math.max(1, Math.ceil(filteredDeposits.length / itemsPerPageFin));
   const currentDepositPage = Math.min(depositPage, totalDepositPages);
-  const displayedDeposits = (deposits || []).slice((currentDepositPage - 1) * ITEMS_PER_PAGE, currentDepositPage * ITEMS_PER_PAGE);
+  const displayedDeposits = financialItemsPerPage === 0 ? filteredDeposits : filteredDeposits.slice((currentDepositPage - 1) * itemsPerPageFin, currentDepositPage * itemsPerPageFin);
 
   // --- AUTO-REFRESH SCRIPT CORE ---
   // "หน้านี้ต้องมีการสร้างสคริปต์ให้ Auto-Refresh ข้อมูลทุกๆ 3 วินาที เพื่อสแตนด์บายรอรับข้อมูลใหม่"
@@ -391,6 +421,18 @@ export default function AdminPanel({
     });
 
     onUpdateUsers(updated);
+
+    const freshManualWithdraw: WithdrawalRequest = {
+      id: `W-MAN-${Date.now()}`,
+      merchantId: withdrawMerchantSelect.id,
+      merchantPhone: withdrawMerchantSelect.phone,
+      merchantName: withdrawMerchantSelect.name,
+      amount: withdrawAmountManual,
+      status: 'approved',
+      comment: withdrawCommentManual || 'ทำรายการหักเงิน/ถอนเงินโดยแอดมินหลังบ้าน',
+      createdAt: new Date().toISOString()
+    };
+    onUpdateWithdrawals([freshManualWithdraw, ...withdrawals]);
 
     logOnlineAction(
       "financial",
@@ -1644,7 +1686,48 @@ export default function AdminPanel({
 
             {/* WITHDRAWALS APPLICATION LIST REQUESTS */}
             <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-sm space-y-4">
-              <span className="text-[10px] font-black text-rose-600 block uppercase tracking-wider font-mono">📥 ตารางใบคำสั่งขอนำเสนอถอนเงินสลีป (Withdrawal request submissions)</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b">
+                <div>
+                  <span className="text-[10px] font-black text-rose-600 block uppercase tracking-wider font-mono">📥 ตารางคำขอถอนเงิน (Withdrawal Requests)</span>
+                  <span className="text-[11px] text-gray-500 font-bold">ทั้งหมด {withdrawals.length} รายการ (บันทึกถาวร)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="🔍 ค้นหารายการถอน (ชื่อ/เบอร์/ID)..."
+                    value={withdrawalSearch}
+                    onChange={(e) => { setWithdrawalSearch(e.target.value); setWithdrawalPage(1); }}
+                    className="bg-gray-50 border rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none w-56"
+                  />
+                  <select
+                    value={financialItemsPerPage}
+                    onChange={(e) => { setFinancialItemsPerPage(Number(e.target.value)); setWithdrawalPage(1); setDepositPage(1); }}
+                    className="bg-gray-50 border rounded-xl px-2 py-1.5 text-xs font-bold text-gray-700 focus:outline-none"
+                  >
+                    <option value={10}>10 / หน้า</option>
+                    <option value={25}>25 / หน้า</option>
+                    <option value={50}>50 / หน้า</option>
+                    <option value={100}>100 / หน้า</option>
+                    <option value={0}>แสดงทั้งหมด</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(withdrawals, null, 2));
+                      const a = document.createElement('a');
+                      a.href = dataStr;
+                      a.download = `SEPHORA_WITHDRAWALS_${Date.now()}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    }}
+                    className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl border flex items-center gap-1 cursor-pointer"
+                    title="ดาวน์โหลดสำรองข้อมูลรายการถอนทั้งหมด"
+                  >
+                    📥 สำรอง JSON
+                  </button>
+                </div>
+              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
@@ -1822,7 +1905,48 @@ export default function AdminPanel({
 
             {/* DEPOSITS APPLICATION LIST REQUESTS */}
             <div className="bg-white p-6 rounded-3xl border border-gray-150 shadow-sm space-y-4 mt-6">
-              <span className="text-[10px] font-black text-teal-600 block uppercase tracking-wider font-mono">📥 ตารางแจ้งฝากเงินแนบสลิปหน้าบ้าน (Deposit Slip Requests)</span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b">
+                <div>
+                  <span className="text-[10px] font-black text-teal-600 block uppercase tracking-wider font-mono">📥 ตารางรายการฝากเงิน (Deposit Requests)</span>
+                  <span className="text-[11px] text-gray-500 font-bold">ทั้งหมด {(deposits || []).length} รายการ (บันทึกถาวร)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="🔍 ค้นหารายการฝาก (ชื่อ/เบอร์/ID)..."
+                    value={depositSearch}
+                    onChange={(e) => { setDepositSearch(e.target.value); setDepositPage(1); }}
+                    className="bg-gray-50 border rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none w-56"
+                  />
+                  <select
+                    value={financialItemsPerPage}
+                    onChange={(e) => { setFinancialItemsPerPage(Number(e.target.value)); setDepositPage(1); setWithdrawalPage(1); }}
+                    className="bg-gray-50 border rounded-xl px-2 py-1.5 text-xs font-bold text-gray-700 focus:outline-none"
+                  >
+                    <option value={10}>10 / หน้า</option>
+                    <option value={25}>25 / หน้า</option>
+                    <option value={50}>50 / หน้า</option>
+                    <option value={100}>100 / หน้า</option>
+                    <option value={0}>แสดงทั้งหมด</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(deposits || [], null, 2));
+                      const a = document.createElement('a');
+                      a.href = dataStr;
+                      a.download = `SEPHORA_DEPOSITS_${Date.now()}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    }}
+                    className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl border flex items-center gap-1 cursor-pointer"
+                    title="ดาวน์โหลดสำรองข้อมูลรายการฝากทั้งหมด"
+                  >
+                    📥 สำรอง JSON
+                  </button>
+                </div>
+              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
