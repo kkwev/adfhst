@@ -22,7 +22,8 @@ import {
 } from './db/local_db';
 import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "./db/firebase";
-import { initializeFirestoreDB, saveToFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync, forceReconnectAndSyncWithoutCheck } from "./db/firestore_service";
+import { initializeFirestoreDB, saveToFirestore, deleteFromFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync, forceReconnectAndSyncWithoutCheck } from "./db/firestore_service";
+import { getItemsFromIndexedDB, syncAndMergeWithIndexedDB } from "./db/indexed_db";
 import { AlertTriangle } from "lucide-react";
 
 interface CartItem {
@@ -179,6 +180,52 @@ export default function App() {
     setWithdrawals(loadedWithdrawals);
     setNotifications(loadedNotifs);
     setDeposits(loadedDeposits);
+
+    // Initial load from IndexedDB to guarantee complete permanent transaction history
+    (async () => {
+      try {
+        const [idbDeposits, idbWithdrawals, idbOrders] = await Promise.all([
+          getItemsFromIndexedDB<DepositRequest>("deposits"),
+          getItemsFromIndexedDB<WithdrawalRequest>("withdrawals"),
+          getItemsFromIndexedDB<Order>("orders")
+        ]);
+
+        if (idbDeposits && idbDeposits.length > 0) {
+          setDeposits(prev => {
+            const map = new Map<string, DepositRequest>();
+            idbDeposits.forEach(d => { if (d && d.id) map.set(d.id, d); });
+            prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            localStorage.setItem("paopao_deposits", JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (idbWithdrawals && idbWithdrawals.length > 0) {
+          setWithdrawals(prev => {
+            const map = new Map<string, WithdrawalRequest>();
+            idbWithdrawals.forEach(w => { if (w && w.id) map.set(w.id, w); });
+            prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
+            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+            return merged;
+          });
+        }
+
+        if (idbOrders && idbOrders.length > 0) {
+          setOrders(prev => {
+            const map = new Map<string, Order>();
+            idbOrders.forEach(o => { if (o && o.id) map.set(o.id, o); });
+            prev.forEach(o => { if (o && o.id) map.set(o.id, o); });
+            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            localStorage.setItem("paopao_orders", JSON.stringify(merged));
+            return merged;
+          });
+        }
+      } catch (idbErr) {
+        console.warn("IndexedDB initial load note:", idbErr);
+      }
+    })();
 
     // Sync active session user details with master data using a stable functional updater
     setCurrentUser(prevUser => {
@@ -555,15 +602,15 @@ export default function App() {
               handleQuotaErrorGlobal(err);
             }),
 
-            onSnapshot(collection(db, "withdrawals"), (snapshot) => {
+            onSnapshot(collection(db, "withdrawals"), async (snapshot) => {
               const list: WithdrawalRequest[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as WithdrawalRequest);
               });
-              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-              updateFirestoreCache("paopao_withdrawals", list);
-              localStorage.setItem("paopao_withdrawals", JSON.stringify(list));
-              setWithdrawals(list);
+              const merged = await syncAndMergeWithIndexedDB<WithdrawalRequest>("withdrawals", list);
+              updateFirestoreCache("paopao_withdrawals", merged);
+              localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+              setWithdrawals(merged);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (withdrawals). Using local offline storage.");
@@ -573,15 +620,15 @@ export default function App() {
               handleQuotaErrorGlobal(err);
             }),
 
-            onSnapshot(collection(db, "deposits"), (snapshot) => {
+            onSnapshot(collection(db, "deposits"), async (snapshot) => {
               const list: DepositRequest[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as DepositRequest);
               });
-              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-              updateFirestoreCache("paopao_deposits", list);
-              localStorage.setItem("paopao_deposits", JSON.stringify(list));
-              setDeposits(list);
+              const merged = await syncAndMergeWithIndexedDB<DepositRequest>("deposits", list);
+              updateFirestoreCache("paopao_deposits", merged);
+              localStorage.setItem("paopao_deposits", JSON.stringify(merged));
+              setDeposits(merged);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (deposits). Using local offline storage.");
@@ -772,7 +819,7 @@ export default function App() {
   }) => {
     if (!currentUser) return;
 
-    // Allocate order ID starting at OR34589 and randomly incrementing
+    // Allocate unique order ID starting at OR34589 and incrementing safely
     let lastOrderNum = localStorage.getItem("paopao_last_order_num");
     let nextNum: number;
     if (!lastOrderNum) {
@@ -781,7 +828,12 @@ export default function App() {
       nextNum = Number(lastOrderNum) + Math.floor(Math.random() * 45) + 5;
     }
     localStorage.setItem("paopao_last_order_num", String(nextNum));
-    const orderId = `OR${nextNum}`;
+    
+    // Ensure uniqueness by checking existing order IDs
+    let orderId = `OR${nextNum}`;
+    if (orders.some(o => o.id === orderId)) {
+      orderId = `OR${nextNum}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    }
 
     // 1. Double check wallet if paid via Wallet
     if (orderData.paymentMethod === 'wallet' && currentUser.wallet < orderData.grandTotal) {
@@ -836,8 +888,6 @@ export default function App() {
       items: orderData.items
     };
 
-    const newOrders = [freshOrder, ...orders];
-
     // 4. Update user balances (deduct buyer, deposit merchant if wallet used)
     let newUsers = [...users];
     if (orderData.paymentMethod === 'wallet') {
@@ -854,7 +904,7 @@ export default function App() {
 
     // 5. Push transactional notification
     const orderNotification: SystemNotification = {
-      id: `N-ORD-${Date.now()}`,
+      id: `N-ORD-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       userId: currentUser.id,
       title: "ชำระเงินพัสดุสำเร็จ รอร้านอนุมัติ",
       message: `ระบบได้รับใบคำสั่งซื้อเลขบิล ${orderId} ยอดรวม ${orderData.grandTotal.toLocaleString()} THB เรียบร้อยแล้วค่ะ! รอร้านค้ายืนยันรับคำสั่งซื้อสักครู่ค่ะ`,
@@ -863,7 +913,7 @@ export default function App() {
     };
 
     const merchantNotification: SystemNotification = {
-      id: `N-ORD-MER-${Date.now()}`,
+      id: `N-ORD-MER-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       userId: orderData.merchantId,
       title: "มีออเดอร์ใหม่",
       message: `เลขออเดอร์: ${orderId}\nชื่อผู้ซื้อ: ${(currentUser.name || "ลูกค้าทั่วไป").substring(0, 4)}xxxxxxxx\n\nโปรดติดต่อผู้ดูแลส่วนตัวของท่านเพื่อยืนยันตัวตนร้านค้าและเปิดการมองเห็นเนื่องจากสมาชิกเป็นร้านค้าใหม่`,
@@ -871,18 +921,28 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
 
-    const newNotifs = [orderNotification, merchantNotification, ...notifications];
-
-    // Persist all databases state
+    // Persist all databases state with functional deduplication
     setProducts(currentProducts);
-    setOrders(newOrders);
-    setUsers(newUsers);
-    setNotifications(newNotifs);
-
     setStoredData("paopao_products", currentProducts);
-    setStoredData("paopao_orders", newOrders);
+
+    setOrders(prev => {
+      const map = new Map<string, Order>();
+      [freshOrder, ...prev].forEach(o => { if (o && o.id) map.set(o.id, o); });
+      const updated = Array.from(map.values());
+      setStoredData("paopao_orders", updated);
+      return updated;
+    });
+
+    setUsers(newUsers);
     setStoredData("paopao_users", newUsers);
-    setStoredData("paopao_notifications", newNotifs);
+
+    setNotifications(prev => {
+      const map = new Map<string, SystemNotification>();
+      [orderNotification, merchantNotification, ...prev].forEach(n => { if (n && n.id) map.set(n.id, n); });
+      const updated = Array.from(map.values());
+      setStoredData("paopao_notifications", updated);
+      return updated;
+    });
 
     // Sync current session state
     const syncedBuyer = newUsers.find(u => u.id === currentUser.id);
