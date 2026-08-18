@@ -216,6 +216,16 @@ export async function initializeFirestoreDB() {
   }
 }
 
+export async function deleteFromFirestore(collectionName: string, id: string) {
+  if (!collectionName || !id) return;
+  if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") return;
+  try {
+    await deleteDoc(doc(db, collectionName, id));
+  } catch (err) {
+    console.warn(`Error deleting document ${id} from collection ${collectionName}:`, err);
+  }
+}
+
 // Save dataset modifications back to Firestore
 export async function saveToFirestore(key: string, data: any) {
   if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
@@ -246,9 +256,8 @@ export async function saveToFirestore(key: string, data: any) {
 
     const cached = dbStateCache[key] || [];
     const cachedMap = new Map<string, any>(cached.map((item: any) => [item.id, item]));
-    const currentMap = new Map<string, any>(data.map((item: any) => [item.id, item]));
 
-    // 1. Save only new or modified items
+    // 1. Save all new or modified items (Upsert)
     for (const item of data) {
       if (item && item.id) {
         const cachedItem = cachedMap.get(item.id);
@@ -258,16 +267,8 @@ export async function saveToFirestore(key: string, data: any) {
       }
     }
 
-    // 2. Delete items that were removed from local state
-    for (const cachedItem of cached) {
-      if (cachedItem && cachedItem.id && !currentMap.has(cachedItem.id)) {
-        try {
-          await deleteDoc(doc(db, collectionName, cachedItem.id));
-        } catch (delErr) {
-          console.warn(`Error deleting document ${cachedItem.id} from Firestore:`, delErr);
-        }
-      }
-    }
+    // Note: We do NOT automatically delete unlisted items in financial records (deposits, withdrawals, orders, notifications, users, chats).
+    // Transactions and history are permanently preserved. Only explicit user actions should delete items (handled by deleteFromFirestore).
 
     // Keep cache up to date
     dbStateCache[key] = JSON.parse(JSON.stringify(data));
