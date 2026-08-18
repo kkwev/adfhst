@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { Package, Truck, Calendar, Store, CheckCircle, HelpCircle, XCircle, ChevronRight, AlertCircle } from 'lucide-react';
 import { Order, User, SystemSettings } from '../types';
+import { formatThaiDateTime } from '../utils/thaiTime';
 
 interface OrdersTabProps {
   orders: Order[];
@@ -115,14 +116,7 @@ export default function OrdersTab({
       ) : (
         <div className="space-y-4">
           {filteredOrders.map((ord) => {
-            const dateObj = new Date(ord.createdAt);
-            const dateStr = dateObj.toLocaleDateString('th-TH', { 
-              year: 'numeric', 
-              month: 'short', 
-              day: 'numeric', 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            });
+            const dateStr = formatThaiDateTime(ord.createdAt);
 
             return (
               <div 
