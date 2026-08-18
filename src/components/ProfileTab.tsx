@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { User, Order, ChatMessage, SystemSettings, WithdrawalRequest, DepositRequest, Product } from '../types';
 import { compressImage, uploadImageToCloud } from '../db/image_compressor';
+import { formatThaiDateTimeStandard, formatThaiChatTime, formatThaiDateTime } from '../utils/thaiTime';
 
 interface ProfileTabProps {
   currentUser: User | null;
@@ -481,8 +482,11 @@ export default function ProfileTab({
     return (products || []).filter(p => p.merchantId === currentUser?.id);
   }, [products, currentUser]);
 
-  // Wallet history pagination state
+  // Wallet history pagination & filter state
   const [txPage, setTxPage] = useState(1);
+  const [txFilter, setTxFilter] = useState<'all' | 'deposit' | 'withdrawal' | 'payment'>('all');
+  const [txSearch, setTxSearch] = useState('');
+  const [txItemsPerPage, setTxItemsPerPage] = useState<number>(25);
 
   // Deposit form state
   const [showDepositPopup, setShowDepositPopup] = useState(false);
@@ -584,7 +588,8 @@ export default function ProfileTab({
       id: w.id,
       type: "withdrawal",
       amount: w.amount,
-      date: w.createdAt.replace('T', ' ').substring(0, 16),
+      date: formatThaiDateTimeStandard(w.createdAt),
+      rawTimestamp: new Date(w.createdAt).getTime(),
       note: noteText
     };
   });
@@ -607,7 +612,8 @@ export default function ProfileTab({
       type: "deposit",
       amount: d.amount,
       bonus: d.bonus || 0,
-      date: d.createdAt.replace('T', ' ').substring(0, 16),
+      date: formatThaiDateTimeStandard(d.createdAt),
+      rawTimestamp: new Date(d.createdAt).getTime(),
       note: noteText
     };
   });
@@ -619,7 +625,8 @@ export default function ProfileTab({
       id: o.id,
       type: "payment",
       amount: o.grandTotal,
-      date: o.createdAt.replace('T', ' ').substring(0, 16),
+      date: formatThaiDateTimeStandard(o.createdAt),
+      rawTimestamp: new Date(o.createdAt).getTime(),
       note: "ชำระยอด Order สำเร็จ"
     }));
 
@@ -629,7 +636,8 @@ export default function ProfileTab({
       id: o.id,
       type: "deposit",
       amount: o.grandTotal,
-      date: o.createdAt.replace('T', ' ').substring(0, 16),
+      date: formatThaiDateTimeStandard(o.createdAt),
+      rawTimestamp: new Date(o.createdAt).getTime(),
       note: "ชำระยอด Order สำเร็จ"
     }));
 
@@ -639,12 +647,68 @@ export default function ProfileTab({
     ...parsedDepositTxs,
     ...parsedOrderPayments,
     ...parsedOrderEarnings
-  ].sort((a, b) => b.date.localeCompare(a.date));
+  ].sort((a, b) => {
+    const timeA = (a as any).rawTimestamp || new Date(a.date).getTime() || 0;
+    const timeB = (b as any).rawTimestamp || new Date(b.date).getTime() || 0;
+    return timeB - timeA;
+  });
 
-  // Pagination filters (5 entries per page)
-  const itemsPerPage = 5;
-  const totalPages = Math.ceil(allTxs.length / itemsPerPage);
-  const currentTxs = allTxs.slice((txPage - 1) * itemsPerPage, txPage * itemsPerPage);
+  // Filter & Search processing
+  const filteredTxs = allTxs.filter(tx => {
+    if (txFilter === 'deposit' && tx.type !== 'deposit') return false;
+    if (txFilter === 'withdrawal' && tx.type !== 'withdrawal') return false;
+    if (txFilter === 'payment' && tx.type !== 'payment') return false;
+
+    if (txSearch.trim() !== '') {
+      const q = txSearch.toLowerCase().trim();
+      const matchId = (tx.id || '').toLowerCase().includes(q);
+      const matchNote = (tx.note || '').toLowerCase().includes(q);
+      const matchAmount = (tx.amount || '').toString().includes(q);
+      const matchDate = (tx.date || '').toLowerCase().includes(q);
+      if (!matchId && !matchNote && !matchAmount && !matchDate) return false;
+    }
+    return true;
+  });
+
+  // Aggregate statistics for user summary
+  const totalDepositsSum = allTxs
+    .filter(t => t.type === 'deposit' && (t.note === 'ดำเนินการเสร็จสิ้น' || t.note.includes('Order')))
+    .reduce((acc, t) => acc + (t.amount || 0) + ((t as any).bonus || 0), 0);
+
+  const totalWithdrawalsSum = allTxs
+    .filter(t => t.type === 'withdrawal' && t.note === 'ดำเนินการเสร็จสิ้น')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  const totalPaymentsSum = allTxs
+    .filter(t => t.type === 'payment')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+
+  // Pagination calculation
+  const itemsPerPage = txItemsPerPage === 0 ? Math.max(1, filteredTxs.length) : txItemsPerPage;
+  const totalPages = txItemsPerPage === 0 ? 1 : Math.max(1, Math.ceil(filteredTxs.length / itemsPerPage));
+  const effectivePage = Math.min(txPage, totalPages);
+  const currentTxs = txItemsPerPage === 0 ? filteredTxs : filteredTxs.slice((effectivePage - 1) * itemsPerPage, effectivePage * itemsPerPage);
+
+  const handleExportTransactions = () => {
+    const exportData = {
+      user: {
+        id: currentUser.id,
+        name: currentUser.name,
+        phone: currentUser.phone,
+        wallet: currentUser.wallet
+      },
+      exportedAt: new Date().toISOString(),
+      totalRecords: allTxs.length,
+      transactions: allTxs
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `SEPHORA_TX_LOG_${currentUser.id}_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
 
   const handleFileChangeForDeposit = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1029,17 +1093,141 @@ export default function ProfileTab({
             >
               ← ย้อนกลับ
             </button>
-            <span className="text-xs font-black text-gray-800">ประวัติการเงินธุรกรรม</span>
+            <div className="text-right flex items-center gap-2">
+              <span className="text-xs font-black text-gray-800">ประวัติการเงินธุรกรรม</span>
+              <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                🔒 บันทึกถาวรในระบบ
+              </span>
+            </div>
           </div>
 
-          {currentTxs.length === 0 ? (
-            <p className="text-center py-8 text-xs text-gray-400 font-bold">ไม่มีรายการธุรกรรมการเงินใดๆ</p>
+          {/* Aggregate Overview Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gradient-to-br from-gray-50 to-gray-100/70 p-3 rounded-2xl border border-gray-200/80">
+            <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-xs">
+              <span className="text-[9px] font-bold text-gray-400 block">รายการทั้งหมด</span>
+              <span className="text-sm font-black font-mono text-gray-800">{allTxs.length.toLocaleString()} รายการ</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-xl border border-teal-100 shadow-xs">
+              <span className="text-[9px] font-bold text-teal-600 block">ยอดฝากสะสม</span>
+              <span className="text-sm font-black font-mono text-teal-600">+{totalDepositsSum.toLocaleString()} ฿</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-xl border border-rose-100 shadow-xs">
+              <span className="text-[9px] font-bold text-rose-600 block">ยอดถอนสำเร็จ</span>
+              <span className="text-sm font-black font-mono text-rose-600">-{totalWithdrawalsSum.toLocaleString()} ฿</span>
+            </div>
+            <div className="bg-white p-2.5 rounded-xl border border-amber-100 shadow-xs">
+              <span className="text-[9px] font-bold text-amber-600 block">ยอดชำระ Order</span>
+              <span className="text-sm font-black font-mono text-amber-600">-{totalPaymentsSum.toLocaleString()} ฿</span>
+            </div>
+          </div>
+
+          {/* Filter Bar & Search */}
+          <div className="space-y-2">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              <button
+                onClick={() => { setTxFilter('all'); setTxPage(1); }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
+                  txFilter === 'all' 
+                    ? 'bg-gray-900 text-white shadow-xs' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                ทั้งหมด ({allTxs.length})
+              </button>
+              <button
+                onClick={() => { setTxFilter('deposit'); setTxPage(1); }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
+                  txFilter === 'deposit' 
+                    ? 'bg-teal-600 text-white shadow-xs' 
+                    : 'bg-teal-50 text-teal-700 hover:bg-teal-100'
+                }`}
+              >
+                ฝากเงิน ({allTxs.filter(t => t.type === 'deposit').length})
+              </button>
+              <button
+                onClick={() => { setTxFilter('withdrawal'); setTxPage(1); }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
+                  txFilter === 'withdrawal' 
+                    ? 'bg-rose-600 text-white shadow-xs' 
+                    : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                }`}
+              >
+                ถอนเงิน ({allTxs.filter(t => t.type === 'withdrawal').length})
+              </button>
+              <button
+                onClick={() => { setTxFilter('payment'); setTxPage(1); }}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all shrink-0 ${
+                  txFilter === 'payment' 
+                    ? 'bg-amber-600 text-white shadow-xs' 
+                    : 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                }`}
+              >
+                ชำระเงิน ({allTxs.filter(t => t.type === 'payment').length})
+              </button>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 items-center justify-between">
+              <div className="relative w-full sm:w-64">
+                <input 
+                  type="text"
+                  placeholder="ค้นหา Transaction ID หรือ ยอดเงิน..."
+                  value={txSearch}
+                  onChange={(e) => { setTxSearch(e.target.value); setTxPage(1); }}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                />
+                {txSearch && (
+                  <button 
+                    onClick={() => { setTxSearch(''); setTxPage(1); }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-500 font-bold">แสดง:</span>
+                  <select 
+                    value={txItemsPerPage}
+                    onChange={(e) => { setTxItemsPerPage(Number(e.target.value)); setTxPage(1); }}
+                    className="bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 text-[10px] font-bold text-gray-700 focus:outline-none"
+                  >
+                    <option value={10}>10 รายการ</option>
+                    <option value={25}>25 รายการ</option>
+                    <option value={50}>50 รายการ</option>
+                    <option value={100}>100 รายการ</option>
+                    <option value={0}>แสดงทั้งหมด</option>
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleExportTransactions}
+                  className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-[10px] font-bold text-gray-700 rounded-lg flex items-center gap-1 border border-gray-200 transition-colors"
+                  title="ดาวน์โหลดประวัติธุรกรรมทั้งหมดเพื่อสำรองข้อมูล"
+                >
+                  📥 สำรองข้อมูล
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {filteredTxs.length === 0 ? (
+            <div className="bg-white p-8 rounded-2xl border border-gray-100 text-center shadow-sm">
+              <span className="text-2xl block mb-1">📜</span>
+              <p className="text-xs text-gray-500 font-bold">ไม่พบรายการธุรกรรมตามเงื่อนไขที่ค้นหา</p>
+              <p className="text-[10px] text-gray-400 mt-1">ประวัติธุรกรรมทั้งหมดจะถูกจัดเก็บถาวรและไม่ถูกลบหายไปค่ะ</p>
+            </div>
           ) : (
             <div className="space-y-2 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm">
+              <div className="px-2 py-1 flex justify-between text-[10px] font-bold text-gray-400 border-b border-gray-50">
+                <span>แสดง {currentTxs.length} จาก {filteredTxs.length} รายการ</span>
+                <span>เรียงตามเวลาล่าสุด</span>
+              </div>
               {currentTxs.map((tx, idx) => (
-                <div key={idx} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-xl text-xs">
+                <div key={tx.id || idx} className="flex justify-between items-center p-3 hover:bg-gray-50/80 transition-colors rounded-xl text-xs border border-transparent hover:border-gray-100">
                   <div className="flex items-center gap-2.5">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                       tx.type === 'deposit' ? 'bg-teal-50 text-teal-600' : tx.type === 'payment' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'
                     }`}>
                       {tx.type === 'deposit' ? <ArrowDownLeft size={14} /> : <ArrowUpRight size={14} />}
@@ -1057,7 +1245,7 @@ export default function ProfileTab({
                             <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" strokeWidth="2.5" strokeLinecap="round" opacity="0.4" />
                             <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" strokeWidth="2.5" strokeLinecap="round" opacity="0.7" />
                           </svg>
-                          <span className="font-extrabold text-gray-400 block truncate max-w-[180px]">
+                          <span className="font-extrabold text-amber-600 block truncate max-w-[180px]">
                             {tx.note}
                           </span>
                         </div>
@@ -1066,13 +1254,13 @@ export default function ProfileTab({
                           {tx.note}
                         </span>
                       )}
-                      <span className="text-[9px] font-bold text-gray-400 font-mono block">
-                        {tx.date} • {tx.id}
+                      <span className="text-[9px] font-bold text-gray-400 font-mono block mt-0.5">
+                        {tx.date} • <span className="text-gray-500 font-semibold">{tx.id}</span>
                       </span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end shrink-0">
-                    <span className={`font-black font-mono ${tx.type === 'deposit' ? 'text-teal-600' : 'text-rose-600'}`}>
+                    <span className={`font-black font-mono text-sm ${tx.type === 'deposit' ? 'text-teal-600' : 'text-rose-600'}`}>
                       {tx.type === 'deposit' ? '+' : '-'}{tx.amount.toLocaleString()} THB
                     </span>
                     {(tx as any).bonus && (tx as any).bonus > 0 ? (
@@ -1086,23 +1274,26 @@ export default function ProfileTab({
             </div>
           )}
 
-          {/* Simple user pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-4">
+          {/* User pagination */}
+          {totalPages > 1 && txItemsPerPage !== 0 && (
+            <div className="flex items-center justify-between pt-3 px-1 border-t border-gray-100">
               <button
-                disabled={txPage === 1}
+                disabled={effectivePage === 1}
                 onClick={() => setTxPage(prev => Math.max(1, prev - 1))}
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-[10px] font-bold rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs font-bold rounded-xl disabled:opacity-40 transition-colors text-gray-700"
               >
-                ก่อนหน้า
+                ← ก่อนหน้า
               </button>
-              <span className="text-[10px] font-bold text-gray-500 font-mono">หน้า {txPage} จาก {totalPages}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-gray-600 font-mono">หน้า {effectivePage} จาก {totalPages}</span>
+                <span className="text-[10px] text-gray-400">({filteredTxs.length} รายการ)</span>
+              </div>
               <button
-                disabled={txPage === totalPages}
+                disabled={effectivePage === totalPages}
                 onClick={() => setTxPage(prev => Math.min(totalPages, prev + 1))}
-                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-[10px] font-bold rounded-lg disabled:opacity-50"
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-xs font-bold rounded-xl disabled:opacity-40 transition-colors text-gray-700"
               >
-                ถัดไป
+                ถัดไป →
               </button>
             </div>
           )}
@@ -1153,6 +1344,11 @@ export default function ProfileTab({
                           className="max-w-[120px] rounded-lg mt-1 border"
                           referrerPolicy="no-referrer"
                         />
+                      )}
+                      {chat.createdAt && (
+                        <span className={`text-[8px] font-mono block mt-1 text-right ${isAdmin ? 'text-gray-400' : 'text-white/80'}`}>
+                          {formatThaiChatTime(chat.createdAt)}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1448,7 +1644,14 @@ export default function ProfileTab({
                     className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-xs space-y-3 animate-fade-in"
                   >
                     <div className="flex justify-between items-center border-b pb-2">
-                      <span className="font-extrabold text-gray-800 font-mono">บิลลูกค้า: {ord.id}</span>
+                      <div className="flex flex-col">
+                        <span className="font-extrabold text-gray-800 font-mono">บิลลูกค้า: {ord.id}</span>
+                        {ord.createdAt && (
+                          <span className="text-[9px] font-bold text-gray-400 font-mono">
+                            เวลาสั่งซื้อ: {formatThaiDateTime(ord.createdAt)}
+                          </span>
+                        )}
+                      </div>
                       <span className={`font-black uppercase text-[9px] px-2 py-0.5 rounded-full ${
                         ord.status === 'waiting_approval' ? 'bg-amber-100 text-amber-700' : 'bg-teal-100 text-teal-700'
                       }`}>
