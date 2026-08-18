@@ -13,6 +13,7 @@ import {
 } from '../types';
 import { logOnlineAction, getOnlineActionLogs } from '../db/local_db';
 import { compressImage, uploadImageToCloud } from '../db/image_compressor';
+import { formatThaiDateTime, formatThaiDateTimeStandard, formatThaiChatTime } from '../utils/thaiTime';
 
 interface AdminPanelProps {
   currentUser: User | null;
@@ -272,10 +273,10 @@ export default function AdminPanel({
     if (file) {
       setIsUploadingBanner(true);
       try {
-        const cloudUrl = await uploadImageToCloud(file);
+        const cloudUrl = await uploadImageToCloud(file, { isBanner: true, maxSize: 1920, quality: 0.90, folder: "banners" });
         if (cloudUrl) {
           setSettingsBanners([...settingsBanners, cloudUrl]);
-          alert("อัปโหลดบอร์ดภาพสไลเดอร์แบนเนอร์ (สัดส่วน 1200x450 pixels) จากไฟล์เครื่องสำเร็จจ้า! 🖼️");
+          alert("อัปโหลดบอร์ดภาพสไลเดอร์แบนเนอร์ความคมชัดสูงระดับ HD (สัดส่วน 1200x450 หรือ 1920x640 pixels) สำเร็จเรียบร้อยแล้วค่ะ! 🖼️✨");
         }
       } catch (err) {
         console.error("Banner upload error:", err);
@@ -1666,7 +1667,7 @@ export default function AdminPanel({
                     ) : (
                       displayedWithdrawals.map((wReq) => (
                         <tr key={wReq.id} className="hover:bg-gray-50/50">
-                          <td className="p-3 font-mono font-bold text-gray-500">{wReq.createdAt.replace('T', ' ').substring(0,16)}</td>
+                          <td className="p-3 font-mono font-bold text-gray-500">{formatThaiDateTimeStandard(wReq.createdAt)}</td>
                           <td className="p-3 font-bold text-gray-800">
                             {wReq.merchantName} <span className="block text-[9px] text-gray-400 font-mono">Tel: {wReq.merchantPhone}</span>
                           </td>
@@ -1847,7 +1848,7 @@ export default function AdminPanel({
                       displayedDeposits.map((dReq) => (
                         <tr key={dReq.id} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono font-bold text-gray-500">
-                            {dReq.createdAt.replace('T', ' ').substring(0, 16)}
+                            {formatThaiDateTimeStandard(dReq.createdAt)}
                           </td>
                           <td className="p-3 font-mono font-black text-gray-800">
                             {dReq.id}
@@ -2811,6 +2812,11 @@ export default function AdminPanel({
                             }`}>
                               <p className="font-semibold break-all whitespace-pre-wrap">{chat.message}</p>
                               {chat.image && <img src={chat.image} className="max-w-[100px] border rounded mt-1" referrerPolicy="no-referrer" />}
+                              {chat.createdAt && (
+                                <span className={`text-[8px] font-mono block mt-1 text-right ${isNotAdmin ? 'text-gray-400' : 'text-gray-300'}`}>
+                                  {formatThaiChatTime(chat.createdAt)}
+                                </span>
+                              )}
                             </div>
                           </div>
                         );
@@ -3241,7 +3247,7 @@ export default function AdminPanel({
                         <tr key={log.id} className="hover:bg-gray-50/50">
                           <td className="p-3 font-mono text-gray-400 text-[10px]">{log.id}</td>
                           <td className="p-3 font-normal text-gray-500 font-mono text-[10px]">
-                            {new Date(log.timestamp).toLocaleString("th-TH")}
+                            {formatThaiDateTime(log.timestamp, true)}
                           </td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wide ${catColor}`}>
