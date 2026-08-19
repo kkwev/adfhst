@@ -1047,11 +1047,8 @@ export default function ProfileTab({
             >
               ← ย้อนกลับ
             </button>
-            <div className="text-right flex items-center gap-2">
+            <div className="text-right">
               <span className="text-xs font-black text-gray-800">ประวัติการเงินธุรกรรม</span>
-              <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
-                🔒 บันทึกถาวรในระบบ
-              </span>
             </div>
           </div>
 
