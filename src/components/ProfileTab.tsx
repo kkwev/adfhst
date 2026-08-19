@@ -770,9 +770,8 @@ export default function ProfileTab({
   const incomingMerchantOrders = orders.filter(o => o.merchantId === currentUser.id);
 
   // --- SAVE PERSONAL INFO LOCKING ---
-  // If bankName / bankAccount are already populated from database defaults/initial setup, lock them so they cannot be overwritten
-  // "หากกรอกและกดบันทึกครั้งแรกแล้ว จะถูกล็อกถาวรห้ามแก้ไขเอง"
-  const isBankPrePopulated = !!currentUser.bankName && !!currentUser.bankAccount;
+  // If bank information is already saved in currentUser, lock it permanently so it cannot be altered again
+  const isBankPrePopulated = Boolean(currentUser.bankAccount || currentUser.bankName || currentUser.bankHolderName);
 
   const handleSavePersonalInfo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -785,7 +784,7 @@ export default function ProfileTab({
       bankHolderName: isBankPrePopulated ? currentUser.bankHolderName : bankHolderName.trim(),
     });
 
-    alert('บันทึกอัปเดตข้อมูลประวัติข้อมูลส่วนบุคคลสำมะโนเรียบร้อยค่ะ!');
+    alert('บันทึกข้อมูลประวัติข้อมูลส่วนบุคคลของคุณเรียบร้อยค่ะ!');
     setProfileView('index');
   };
 
@@ -1261,153 +1260,151 @@ export default function ProfileTab({
               />
             </div>
 
-            {/* Store bank details for merchants and admins */}
-            {isMerchant && (
-              <div className="border-t pt-4 space-y-4">
-                <div className="flex flex-col">
-                  <span className="text-xs font-black text-red-600 font-display block">🔐 ข้อมูลบัญชีธนาคารสำหรับทำรายการถอน</span>
-                  <p className="text-[9px] text-gray-400 mt-1 font-bold">
-                    * สำคัญ: ข้อมูลสำหรับการระบายตัดยอดถอนเงินร้านค้า หากท่านบันทึกครั้งแรกแล้วข้อมูลจะถูกล็อกถาวรเพื่อความปลอดภัย ปลอมแปลงไม่ได้!
-                  </p>
-                </div>
+            {/* Bank details for withdrawals */}
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-red-600 font-display block">🔐 ข้อมูลบัญชีธนาคารสำหรับทำรายการถอน</span>
+                <p className="text-[9px] text-gray-400 mt-1 font-bold">
+                  * สำคัญ: ข้อมูลสำหรับการระบายตัดยอดถอนเงิน หากท่านบันทึกครั้งแรกแล้วข้อมูลจะถูกล็อกถาวรเพื่อความปลอดภัย ปลอมแปลงไม่ได้!
+                </p>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-gray-500">ชื่อจริง - นามสกุล (Bank Account Holder Name)</label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isBankPrePopulated}
-                    placeholder="เช่น นาย สมศักดิ์ เป๋าเป่า"
-                    className={`w-full bg-gray-50 border rounded-xl p-2.5 text-xs font-bold ${isBankPrePopulated ? 'bg-gray-100 font-bold text-gray-400 cursor-not-allowed border-gray-200' : ''}`}
-                    value={bankHolderName}
-                    onChange={(e) => setBankHolderName(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-gray-500">ชื่อจริง - นามสกุล (Bank Account Holder Name)</label>
+                <input
+                  type="text"
+                  required={!isBankPrePopulated}
+                  disabled={isBankPrePopulated}
+                  placeholder="เช่น นาย สมศักดิ์ เป๋าเป่า"
+                  className={`w-full bg-gray-50 border rounded-xl p-2.5 text-xs font-bold ${isBankPrePopulated ? 'bg-gray-100 font-bold text-gray-400 cursor-not-allowed border-gray-200' : ''}`}
+                  value={bankHolderName}
+                  onChange={(e) => setBankHolderName(e.target.value)}
+                />
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5 relative">
-                    <label className="text-[10px] font-bold text-gray-500 block">ธนาคาร</label>
-                    {isBankPrePopulated ? (
-                      <div className="w-full bg-gray-100 border border-gray-200 rounded-xl p-2.5 flex items-center justify-between text-gray-400 select-none cursor-not-allowed">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5 relative">
+                  <label className="text-[10px] font-bold text-gray-500 block">ธนาคาร</label>
+                  {isBankPrePopulated ? (
+                    <div className="w-full bg-gray-100 border border-gray-200 rounded-xl p-2.5 flex items-center justify-between text-gray-400 select-none cursor-not-allowed">
+                      {renderSelectedBankInfo(bankName)}
+                      <span className="text-[9px] text-gray-400 font-bold">🔒 ล็อกแล้ว</span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
+                        className="w-full bg-gray-50 border rounded-xl p-2.5 text-left text-xs font-bold flex items-center justify-between hover:bg-gray-100 transition-colors"
+                      >
                         {renderSelectedBankInfo(bankName)}
-                        <span className="text-[9px] text-gray-400 font-bold">ล็อกแล้ว</span>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setIsBankDropdownOpen(!isBankDropdownOpen)}
-                          className="w-full bg-gray-50 border rounded-xl p-2.5 text-left text-xs font-bold flex items-center justify-between hover:bg-gray-100 transition-colors"
-                        >
-                          {renderSelectedBankInfo(bankName)}
-                          <span className="text-gray-400 text-[10px] ml-1">▼</span>
-                        </button>
-                        
-                        {isBankDropdownOpen && (
-                          <div className="absolute left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-hidden flex flex-col">
-                            {/* Search Box */}
-                            <div className="p-2 border-b border-gray-100 bg-gray-50">
+                        <span className="text-gray-400 text-[10px] ml-1">▼</span>
+                      </button>
+                      
+                      {isBankDropdownOpen && (
+                        <div className="absolute left-0 mt-1 w-72 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-hidden flex flex-col">
+                          {/* Search Box */}
+                          <div className="p-2 border-b border-gray-100 bg-gray-50">
+                            <input
+                              type="text"
+                              placeholder="ค้นหาธนาคาร..."
+                              className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none"
+                              value={bankSearch}
+                              onChange={(e) => setBankSearch(e.target.value)}
+                            />
+                          </div>
+                          
+                          {/* Banks List */}
+                          <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-48">
+                            {THAI_BANKS.filter(b => 
+                              b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
+                              b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
+                              b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
+                            ).map((bank) => (
+                              <button
+                                key={bank.id}
+                                type="button"
+                                onClick={() => {
+                                  setBankName(bank.name);
+                                  setIsBankDropdownOpen(false);
+                                  setBankSearch('');
+                                }}
+                                className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
+                              >
+                                <BankLogo bank={bank} className="w-6 h-6" />
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-gray-800">{bank.name}</span>
+                                  <span className="text-[9px] text-gray-400 font-mono">{bank.englishName}</span>
+                                </div>
+                              </button>
+                            ))}
+                            
+                            {THAI_BANKS.filter(b => 
+                              b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
+                              b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
+                              b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
+                            ).length === 0 && (
+                              <div className="p-3 text-center text-xs font-bold text-gray-400">
+                                ไม่พบธนาคารที่คุณระบุ
+                              </div>
+                            )}
+                            
+                            {/* Custom manual option if they really want to type something else */}
+                            <div className="p-2 bg-gray-50 flex gap-2 border-t border-gray-100">
                               <input
                                 type="text"
-                                placeholder="ค้นหาธนาคาร..."
-                                className="w-full bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium focus:outline-none"
+                                placeholder="ระบุธนาคารอื่น..."
+                                className="flex-1 bg-white border border-gray-250 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none"
                                 value={bankSearch}
                                 onChange={(e) => setBankSearch(e.target.value)}
                               />
-                            </div>
-                            
-                            {/* Banks List */}
-                            <div className="overflow-y-auto flex-1 divide-y divide-gray-50 max-h-48">
-                              {THAI_BANKS.filter(b => 
-                                b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
-                                b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
-                                b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
-                              ).map((bank) => (
-                                <button
-                                  key={bank.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setBankName(bank.name);
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (bankSearch.trim()) {
+                                    setBankName(bankSearch.trim());
                                     setIsBankDropdownOpen(false);
                                     setBankSearch('');
-                                  }}
-                                  className="w-full px-3 py-2 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
-                                >
-                                  <BankLogo bank={bank} className="w-6 h-6" />
-                                  <div className="flex flex-col">
-                                    <span className="text-xs font-bold text-gray-800">{bank.name}</span>
-                                    <span className="text-[9px] text-gray-400 font-mono">{bank.englishName}</span>
-                                  </div>
-                                </button>
-                              ))}
-                              
-                              {THAI_BANKS.filter(b => 
-                                b.name.toLowerCase().includes(bankSearch.toLowerCase()) || 
-                                b.englishName.toLowerCase().includes(bankSearch.toLowerCase()) ||
-                                b.shortName.toLowerCase().includes(bankSearch.toLowerCase())
-                              ).length === 0 && (
-                                <div className="p-3 text-center text-xs font-bold text-gray-400">
-                                  ไม่พบธนาคารที่คุณระบุ
-                                </div>
-                              )}
-                              
-                              {/* Custom manual option if they really want to type something else */}
-                              <div className="p-2 bg-gray-50 flex gap-2 border-t border-gray-100">
-                                <input
-                                  type="text"
-                                  placeholder="ระบุธนาคารอื่น..."
-                                  className="flex-1 bg-white border border-gray-250 rounded-lg px-2 py-1 text-xs font-medium focus:outline-none"
-                                  value={bankSearch}
-                                  onChange={(e) => setBankSearch(e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (bankSearch.trim()) {
-                                      setBankName(bankSearch.trim());
-                                      setIsBankDropdownOpen(false);
-                                      setBankSearch('');
-                                    }
-                                  }}
-                                  className="px-2.5 py-1 rounded bg-gray-800 text-white text-[10px] font-bold"
-                                >
-                                  ตกลง
-                                </button>
-                              </div>
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded bg-gray-800 text-white text-[10px] font-bold"
+                              >
+                                ตกลง
+                              </button>
                             </div>
                           </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-gray-500">เลขที่บัญชีรับเงิน (พาสเวิร์ด)</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="เช่น 123-4-56789-0"
-                      disabled={isBankPrePopulated}
-                      className={`w-full bg-gray-50 border rounded-xl p-2.5 text-xs font-bold ${isBankPrePopulated ? 'bg-gray-100 font-bold text-gray-400 cursor-not-allowed border-gray-200' : ''}`}
-                      value={bankAccount}
-                      onChange={(e) => setBankAccount(e.target.value)}
-                    />
-                  </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-
-                {isBankPrePopulated && (
-                  <p className="text-[10.5px] font-black text-rose-500 font-mono bg-rose-50 border-rose-100 border p-2.5 rounded-xl text-center">
-                    ⚠️ ข้อมูลบัญชีรับสิทธิ์ถูกจัดลงนามและยืนยันแล้ว: หากต้องการแก้ไขกรุณาติดต่อแอดมินเท่านั้น
-                  </p>
-                )}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-gray-500">เลขที่บัญชีรับเงิน (พาสเวิร์ด)</label>
+                  <input
+                    type="text"
+                    required={!isBankPrePopulated}
+                    placeholder="เช่น 123-4-56789-0"
+                    disabled={isBankPrePopulated}
+                    className={`w-full bg-gray-50 border rounded-xl p-2.5 text-xs font-bold ${isBankPrePopulated ? 'bg-gray-100 font-bold text-gray-400 cursor-not-allowed border-gray-200' : ''}`}
+                    value={bankAccount}
+                    onChange={(e) => setBankAccount(e.target.value)}
+                  />
+                </div>
               </div>
-            )}
+
+              {isBankPrePopulated && (
+                <p className="text-[10.5px] font-black text-rose-500 font-mono bg-rose-50 border-rose-100 border p-2.5 rounded-xl text-center">
+                  🔒 ข้อมูลบัญชีธนาคารถูกบันทึกและล็อกเรียบร้อยแล้ว: ไม่สามารถแก้ไขได้ (หากต้องการแก้ไขกรุณาติดต่อแอดมินหรือฝ่ายบริการลูกค้าเท่านั้นค่ะ)
+                </p>
+              )}
+            </div>
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl font-bold text-white shadow-md"
+              className="w-full py-3 rounded-xl font-bold text-white shadow-md cursor-pointer hover:opacity-95 transition-opacity"
               style={{ background: `linear-gradient(135deg, ${themePrimary} 0%, ${themeGradientEnd} 100%)` }}
             >
-              บันทึกยืนยันข้อมูลจัดประวัติ
+              บันทึกข้อมูล
             </button>
           </form>
         </div>
