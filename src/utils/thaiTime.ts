@@ -1,14 +1,5 @@
-/**
- * Thai Timezone (Asia/Bangkok, UTC+7) Utilities and Date Formatters
- * Ensures that all dates and times across the entire platform are formatted
- * accurately according to Thailand Standard Time (ICT, UTC+7).
- */
-
 const THAI_TIMEZONE = 'Asia/Bangkok';
 
-/**
- * Safely parse any date/ISO string or timestamp into a valid Date object.
- */
 export function parseDateSafe(input?: string | number | Date | null): Date {
   if (!input) return new Date();
   if (input instanceof Date) return isNaN(input.getTime()) ? new Date() : input;
@@ -18,8 +9,6 @@ export function parseDateSafe(input?: string | number | Date | null): Date {
   }
 
   if (typeof input === 'string') {
-    // If it's a date string without 'Z' or offset, but contains 'T', assume ISO UTC if needed
-    // or standard parsing
     const parsed = new Date(input);
     if (!isNaN(parsed.getTime())) {
       return parsed;
@@ -29,10 +18,6 @@ export function parseDateSafe(input?: string | number | Date | null): Date {
   return new Date();
 }
 
-/**
- * Formats a date to full Thai representation with Thai month and Buddhist Era year (พ.ศ.) or Christian era
- * e.g. "18 ส.ค. 2569 15:04 น." or "18 สิงหาคม 2569 15:04"
- */
 export function formatThaiDateTime(
   input?: string | number | Date | null,
   includeSeconds = false
@@ -56,24 +41,17 @@ export function formatThaiDateTime(
     });
 
     return `${dateStr} ${timeStr} น.`;
-  } catch (err) {
-    console.error('Error formatting Thai date-time:', err);
+  } catch {
     return String(input);
   }
 }
 
-/**
- * Formats a date to numeric standard Thai timezone string (YYYY-MM-DD HH:mm or DD/MM/YYYY HH:mm)
- * e.g. "2026-08-18 15:04"
- */
 export function formatThaiDateTimeStandard(
   input?: string | number | Date | null
 ): string {
   if (!input) return '-';
   try {
     const d = parseDateSafe(input);
-    
-    // Extract parts directly in Asia/Bangkok timezone
     const formatter = new Intl.DateTimeFormat('en-GB', {
       timeZone: THAI_TIMEZONE,
       year: 'numeric',
@@ -96,14 +74,11 @@ export function formatThaiDateTimeStandard(
     }
 
     return `${year}-${month}-${day} ${hour}:${minute}`;
-  } catch (err) {
+  } catch {
     return String(input);
   }
 }
 
-/**
- * Formats a date to Thai date only: e.g. "18 ส.ค. 2569"
- */
 export function formatThaiDate(input?: string | number | Date | null): string {
   if (!input) return '-';
   try {
@@ -119,9 +94,6 @@ export function formatThaiDate(input?: string | number | Date | null): string {
   }
 }
 
-/**
- * Formats a time in Thai timezone: e.g. "15:04 น."
- */
 export function formatThaiTime(
   input?: string | number | Date | null,
   includeSeconds = false
@@ -142,9 +114,6 @@ export function formatThaiTime(
   }
 }
 
-/**
- * Formats chat message time: e.g. "วันนี้ 15:04" or "18 ส.ค. 15:04"
- */
 export function formatThaiChatTime(input?: string | number | Date | null): string {
   if (!input) return '';
   try {
