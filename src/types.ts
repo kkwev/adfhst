@@ -108,6 +108,9 @@ export interface WithdrawalRequest {
   amount: number;
   status: 'pending' | 'approved' | 'rejected';
   comment?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankHolderName?: string;
   createdAt: string;
 }
 
