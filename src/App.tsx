@@ -1233,6 +1233,9 @@ export default function App() {
       merchantName: currentUser.name,
       amount,
       status: 'pending',
+      bankName: currentUser.bankName || '',
+      bankAccount: currentUser.bankAccount || '',
+      bankHolderName: currentUser.bankHolderName || currentUser.name || '',
       createdAt: new Date().toISOString()
     };
     const updatedWithdrawals = [newRequest, ...withdrawals];
