@@ -380,7 +380,7 @@ export default function AdminPanel({
 
     // Record manual deposit so it shows in user's transactions
     const freshManualDeposit: DepositRequest = {
-      id: `DEP-MAN-${Date.now()}`,
+      id: `DEP-MAN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       userId: memberDepositSelect.id,
       userPhone: memberDepositSelect.phone,
       userName: memberDepositSelect.name,
@@ -424,7 +424,7 @@ export default function AdminPanel({
     onUpdateUsers(updated);
 
     const freshManualWithdraw: WithdrawalRequest = {
-      id: `W-MAN-${Date.now()}`,
+      id: `W-MAN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       merchantId: withdrawMerchantSelect.id,
       merchantPhone: withdrawMerchantSelect.phone,
       merchantName: withdrawMerchantSelect.name,
