@@ -463,7 +463,8 @@ export default function ProfileTab({
       }
     }
     localStorage.setItem("paopao_last_deposit_number", nextNumVal.toString());
-    const nextId = `DEP${nextNumVal}`;
+    const entropy = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const nextId = `DEP${nextNumVal}-${entropy}`;
 
     const freshDeposit: DepositRequest = {
       id: nextId,
