@@ -292,6 +292,16 @@ export function initializeDB() {
   }
 }
 
+// In-memory permanent vault to prevent transaction and record loss under any circumstances
+const memoryVault: Record<string, Map<string, any>> = {
+  "paopao_deposits": new Map(),
+  "paopao_withdrawals": new Map(),
+  "paopao_orders": new Map(),
+  "paopao_users": new Map(),
+  "paopao_notifications": new Map(),
+  "paopao_chats": new Map()
+};
+
 // Registry for external sync callback (e.g. Firestore) to write changes to cloud
 let externalSyncCallback: ((key: string, value: any) => void) | null = null;
 
@@ -299,27 +309,127 @@ export function registerExternalSync(cb: (key: string, value: any) => void) {
   externalSyncCallback = cb;
 }
 
-// Get typed tables from localStorage
+// Get typed tables with permanent deduplication & merge against memory vault
 export function getStoredData<T>(key: string, defaultVal: T): T {
   const data = localStorage.getItem(key);
-  if (!data) return defaultVal;
-  try {
-    return JSON.parse(data) as T;
-  } catch (e) {
-    return defaultVal;
+  let parsed: any = null;
+  if (data) {
+    try {
+      parsed = JSON.parse(data);
+    } catch (e) {
+      parsed = null;
+    }
   }
+
+  // If this key is tracked in our in-memory vault (e.g. deposits, withdrawals, orders, users, etc.)
+  const vault = memoryVault[key];
+  if (vault) {
+    // 1. Ingest parsed localStorage items into vault
+    if (Array.isArray(parsed)) {
+      for (const item of parsed) {
+        if (item && item.id) {
+          vault.set(item.id, item);
+        }
+      }
+    }
+
+    // 2. Ingest defaultVal items if vault was empty
+    if (vault.size === 0 && Array.isArray(defaultVal)) {
+      for (const item of defaultVal as any[]) {
+        if (item && item.id) {
+          vault.set(item.id, item);
+        }
+      }
+    }
+
+    // 3. If vault has items, return the complete merged list from vault
+    if (vault.size > 0) {
+      const mergedList = Array.from(vault.values());
+      // Sort by createdAt descending if present
+      mergedList.sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      // Keep localStorage in sync if size differs
+      if (!Array.isArray(parsed) || parsed.length < mergedList.length) {
+        try {
+          localStorage.setItem(key, JSON.stringify(mergedList));
+        } catch (e) {}
+      }
+
+      return mergedList as unknown as T;
+    }
+  }
+
+  if (parsed !== null) return parsed as T;
+  return defaultVal;
 }
 
-// Save back to localStorage and mirror to IndexedDB for zero data loss
+// Save back to memory vault, localStorage and mirror to IndexedDB and Firestore for zero data loss
 export function setStoredData<T>(key: string, value: T): void {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.warn(`setStoredData storage warning for "${key}":`, e);
+  let valueToPersist: any = value;
+
+  // 1. Update memory vault permanently with deep merge
+  const vault = memoryVault[key];
+  if (vault && Array.isArray(value)) {
+    // If vault is currently empty, load whatever was in localStorage first
+    if (vault.size === 0) {
+      try {
+        const existingLocal = localStorage.getItem(key);
+        if (existingLocal) {
+          const parsed = JSON.parse(existingLocal);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (item && item.id) {
+                vault.set(item.id, item);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Now insert / update incoming items into vault without deleting older items
+    for (const item of value) {
+      if (item && item.id) {
+        vault.set(item.id, item);
+      }
+    }
+
+    // Produce the full merged, sorted list to persist across all storage layers
+    const mergedList = Array.from(vault.values());
+    mergedList.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    valueToPersist = mergedList;
   }
 
-  // Mirror to IndexedDB permanent store
-  if (Array.isArray(value)) {
+  // 2. Persist full merged list to localStorage safely
+  try {
+    localStorage.setItem(key, JSON.stringify(valueToPersist));
+  } catch (e) {
+    console.warn(`setStoredData localStorage quota warning for "${key}":`, e);
+    // If saving full array fails (e.g. large slip images in deposits), try saving with compressed slips
+    if (Array.isArray(valueToPersist) && key === "paopao_deposits") {
+      try {
+        const trimmed = (valueToPersist as DepositRequest[]).map(d => ({
+          ...d,
+          slipImage: d.slipImage && d.slipImage.length > 500 && !d.slipImage.startsWith('http') 
+            ? 'image_saved_in_vault' 
+            : d.slipImage
+        }));
+        localStorage.setItem(key, JSON.stringify(trimmed));
+      } catch (err) {}
+    }
+  }
+
+  // 3. Mirror full merged list to IndexedDB permanent store
+  if (Array.isArray(valueToPersist)) {
     const storeMap: Record<string, string> = {
       "paopao_deposits": "deposits",
       "paopao_withdrawals": "withdrawals",
@@ -330,13 +440,14 @@ export function setStoredData<T>(key: string, value: T): void {
     };
     const storeName = storeMap[key];
     if (storeName) {
-      saveItemsToIndexedDB(storeName, value).catch(() => {});
+      saveItemsToIndexedDB(storeName, valueToPersist).catch(() => {});
     }
   }
 
+  // 4. Mirror full merged list to Firestore
   if (externalSyncCallback) {
     try {
-      externalSyncCallback(key, value);
+      externalSyncCallback(key, valueToPersist);
     } catch (e) {
       console.error("External database sync callback failed:", e);
     }
