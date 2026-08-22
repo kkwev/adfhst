@@ -3,41 +3,71 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { safeStorage } from './safe_storage';
+import { parseDateSafe } from '../utils/thaiTime';
+
 // Permanent IndexedDB Vault for zero data-loss persistence of financial transactions, deposits, withdrawals, and orders.
 const DB_NAME = "paopao_permanent_vault_db";
 const DB_VERSION = 1;
 const STORE_NAMES = ["deposits", "withdrawals", "orders", "users", "notifications", "chats", "transactions"];
 
-let dbPromise: Promise<IDBDatabase> | null = null;
+let dbPromise: Promise<IDBDatabase | null> | null = null;
 
-function getIDB(): Promise<IDBDatabase> {
+function getIDB(): Promise<IDBDatabase | null> {
   if (dbPromise) return dbPromise;
 
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    if (typeof window === "undefined" || !window.indexedDB) {
-      reject(new Error("IndexedDB is not supported in this environment"));
-      return;
-    }
-
-    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      for (const storeName of STORE_NAMES) {
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: "id" });
-        }
+  dbPromise = new Promise<IDBDatabase | null>((resolve) => {
+    let resolved = false;
+    const safeResolve = (val: IDBDatabase | null) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(val);
       }
     };
 
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
+    // Timeout failsafe (max 400ms) for iOS WebKit / Safari when IndexedDB is blocked or slow
+    const timer = setTimeout(() => {
+      safeResolve(null);
+    }, 400);
 
-    request.onerror = (event) => {
-      console.warn("IndexedDB failed to open:", (event.target as IDBOpenDBRequest).error);
-      reject((event.target as IDBOpenDBRequest).error);
-    };
+    try {
+      if (typeof window === "undefined" || !window.indexedDB) {
+        clearTimeout(timer);
+        safeResolve(null);
+        return;
+      }
+
+      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
+
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+        try {
+          const db = (event.target as IDBOpenDBRequest).result;
+          for (const storeName of STORE_NAMES) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: "id" });
+            }
+          }
+        } catch (e) {}
+      };
+
+      request.onsuccess = (event) => {
+        clearTimeout(timer);
+        safeResolve((event.target as IDBOpenDBRequest).result);
+      };
+
+      request.onerror = () => {
+        clearTimeout(timer);
+        safeResolve(null);
+      };
+
+      request.onblocked = () => {
+        clearTimeout(timer);
+        safeResolve(null);
+      };
+    } catch (err) {
+      clearTimeout(timer);
+      safeResolve(null);
+    }
   });
 
   return dbPromise;
@@ -46,7 +76,7 @@ function getIDB(): Promise<IDBDatabase> {
 export async function saveItemsToIndexedDB(storeName: string, items: any[]): Promise<void> {
   try {
     const db = await getIDB();
-    if (!items || !Array.isArray(items) || items.length === 0) return;
+    if (!db || !items || !Array.isArray(items) || items.length === 0) return;
 
     await new Promise<void>((resolve, reject) => {
       try {
@@ -66,27 +96,28 @@ export async function saveItemsToIndexedDB(storeName: string, items: any[]): Pro
       }
     });
   } catch (e) {
-    console.warn(`[IndexedDB] Error saving to ${storeName}:`, e);
+    // Graceful fallback on iOS without logging spam
   }
 }
 
 export async function getItemsFromIndexedDB<T>(storeName: string): Promise<T[]> {
   try {
     const db = await getIDB();
+    if (!db) return [];
+    
     return await new Promise<T[]>((resolve, reject) => {
       try {
         const tx = db.transaction([storeName], "readonly");
         const store = tx.objectStore(storeName);
         const request = store.getAll();
 
-        request.onsuccess = () => resolve(request.result as T[]);
+        request.onsuccess = () => resolve((request.result as T[]) || []);
         request.onerror = () => reject(request.error);
       } catch (err) {
         reject(err);
       }
     });
   } catch (e) {
-    console.warn(`[IndexedDB] Error reading from ${storeName}:`, e);
     return [];
   }
 }
@@ -115,7 +146,7 @@ export async function syncAndMergeWithIndexedDB<T extends { id: string; createdA
     const lsKey = lsKeyMap[storeName];
     if (lsKey) {
       try {
-        const raw = localStorage.getItem(lsKey);
+        const raw = safeStorage.getItem(lsKey);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
@@ -145,24 +176,24 @@ export async function syncAndMergeWithIndexedDB<T extends { id: string; createdA
 
     const mergedList = Array.from(itemMap.values());
 
-    // Sort by createdAt descending if present
+    // Sort by createdAt descending if present (bulletproof parseDateSafe for Safari iOS)
     mergedList.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const timeA = a.createdAt ? parseDateSafe(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? parseDateSafe(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
 
-    // Save full merged list back to IndexedDB and localStorage
+    // Save full merged list back to IndexedDB and storage
     saveItemsToIndexedDB(storeName, mergedList).catch(() => {});
     if (lsKey) {
       try {
-        localStorage.setItem(lsKey, JSON.stringify(mergedList));
+        safeStorage.setItem(lsKey, JSON.stringify(mergedList));
       } catch (e) {}
     }
 
     return mergedList;
   } catch (e) {
-    console.warn(`[IndexedDB] Error merging ${storeName}:`, e);
     return incomingItems;
   }
 }
+
