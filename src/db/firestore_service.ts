@@ -32,10 +32,11 @@ import {
   getStoredData,
   logOnlineAction
 } from "./local_db";
+import { safeStorage } from "./safe_storage";
 
 // Clear legacy quota exceeded flag on load since the user has upgraded to the Blaze Plan!
 try {
-  localStorage.removeItem("paopao_firestore_quota_exceeded");
+  safeStorage.removeItem("paopao_firestore_quota_exceeded");
 } catch (e) {}
 
 let onQuotaExceededCallback: (() => void) | null = null;
@@ -104,7 +105,7 @@ function handleQuotaError(err: any) {
 
 // Initialize Firestore collections with seed data if they are vacant
 export async function initializeFirestoreDB() {
-  if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
+  if (safeStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
     try {
       await enableNetwork(db);
       console.log("Firestore network successfully enabled on initialization.");
@@ -113,7 +114,7 @@ export async function initializeFirestoreDB() {
     }
   }
 
-  if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
+  if (safeStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
     console.log("Checking if Firestore Quota has been restored or upgraded...");
     try {
       // Temporarily enable network to check if quota is back
@@ -123,7 +124,7 @@ export async function initializeFirestoreDB() {
       
       // If we reach here, the quota is NOT exceeded anymore!
       console.log("Firestore connection test succeeded. Quota limit has been cleared/upgraded!");
-      localStorage.removeItem("paopao_firestore_quota_exceeded");
+      safeStorage.removeItem("paopao_firestore_quota_exceeded");
       window.location.reload();
       return;
     } catch (error) {
@@ -218,7 +219,7 @@ export async function initializeFirestoreDB() {
 
 export async function deleteFromFirestore(collectionName: string, id: string) {
   if (!collectionName || !id) return;
-  if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") return;
+  if (safeStorage.getItem("paopao_firestore_quota_exceeded") === "true") return;
   try {
     await deleteDoc(doc(db, collectionName, id));
   } catch (err) {
@@ -228,7 +229,7 @@ export async function deleteFromFirestore(collectionName: string, id: string) {
 
 // Save dataset modifications back to Firestore
 export async function saveToFirestore(key: string, data: any) {
-  if (localStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
+  if (safeStorage.getItem("paopao_firestore_quota_exceeded") === "true") {
     console.warn(`Skipping save of ${key} to Firestore: Quota limit exceeded. Saved locally only.`);
     return;
   }
@@ -300,7 +301,7 @@ export async function tryForceReconnectAndSync() {
   await getDocFromServer(settingsRef);
 
   // 3. Clear the quota exceeded flag
-  localStorage.removeItem("paopao_firestore_quota_exceeded");
+  safeStorage.removeItem("paopao_firestore_quota_exceeded");
 
   // 4. Read all offline-stored data
   const localSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
@@ -336,7 +337,7 @@ export async function forceReconnectAndSyncWithoutCheck() {
   await enableNetwork(db);
   
   // 2. FORCE Clear the quota exceeded flag so that writes can happen
-  localStorage.removeItem("paopao_firestore_quota_exceeded");
+  safeStorage.removeItem("paopao_firestore_quota_exceeded");
 
   // 3. Read all offline-stored data
   const localSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
