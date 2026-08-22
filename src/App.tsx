@@ -175,11 +175,30 @@ export default function App() {
     setSettings(loadedSettings);
     setUsers(loadedUsers);
     setProducts(loadedProducts);
-    setOrders(loadedOrders);
     setChats(loadedChats);
-    setWithdrawals(loadedWithdrawals);
     setNotifications(loadedNotifs);
-    setDeposits(loadedDeposits);
+
+    // Non-destructive update for financial transactions & orders
+    setOrders(prev => {
+      const map = new Map<string, Order>();
+      prev.forEach(o => { if (o && o.id) map.set(o.id, o); });
+      loadedOrders.forEach(o => { if (o && o.id) map.set(o.id, o); });
+      return Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    });
+
+    setWithdrawals(prev => {
+      const map = new Map<string, WithdrawalRequest>();
+      prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
+      loadedWithdrawals.forEach(w => { if (w && w.id) map.set(w.id, w); });
+      return Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    });
+
+    setDeposits(prev => {
+      const map = new Map<string, DepositRequest>();
+      prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+      loadedDeposits.forEach(d => { if (d && d.id) map.set(d.id, d); });
+      return Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    });
 
     // Initial load from IndexedDB to guarantee complete permanent transaction history
     (async () => {
@@ -195,7 +214,7 @@ export default function App() {
             const map = new Map<string, DepositRequest>();
             idbDeposits.forEach(d => { if (d && d.id) map.set(d.id, d); });
             prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
-            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             localStorage.setItem("paopao_deposits", JSON.stringify(merged));
             return merged;
           });
@@ -206,7 +225,7 @@ export default function App() {
             const map = new Map<string, WithdrawalRequest>();
             idbWithdrawals.forEach(w => { if (w && w.id) map.set(w.id, w); });
             prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
-            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
             return merged;
           });
@@ -217,7 +236,7 @@ export default function App() {
             const map = new Map<string, Order>();
             idbOrders.forEach(o => { if (o && o.id) map.set(o.id, o); });
             prev.forEach(o => { if (o && o.id) map.set(o.id, o); });
-            const merged = Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+            const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
             localStorage.setItem("paopao_orders", JSON.stringify(merged));
             return merged;
           });
@@ -548,15 +567,15 @@ export default function App() {
               handleQuotaErrorGlobal(err);
             }),
 
-            onSnapshot(collection(db, "orders"), (snapshot) => {
+            onSnapshot(collection(db, "orders"), async (snapshot) => {
               const list: Order[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as Order);
               });
-              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-              updateFirestoreCache("paopao_orders", list);
-              localStorage.setItem("paopao_orders", JSON.stringify(list));
-              setOrders(list);
+              const merged = await syncAndMergeWithIndexedDB<Order>("orders", list);
+              updateFirestoreCache("paopao_orders", merged);
+              localStorage.setItem("paopao_orders", JSON.stringify(merged));
+              setOrders(merged);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (orders). Using local offline storage.");
@@ -566,15 +585,15 @@ export default function App() {
               handleQuotaErrorGlobal(err);
             }),
 
-            onSnapshot(collection(db, "notifications"), (snapshot) => {
+            onSnapshot(collection(db, "notifications"), async (snapshot) => {
               const list: SystemNotification[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as SystemNotification);
               });
-              list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-              updateFirestoreCache("paopao_notifications", list);
-              localStorage.setItem("paopao_notifications", JSON.stringify(list));
-              setNotifications(list);
+              const merged = await syncAndMergeWithIndexedDB<SystemNotification>("notifications", list);
+              updateFirestoreCache("paopao_notifications", merged);
+              localStorage.setItem("paopao_notifications", JSON.stringify(merged));
+              setNotifications(merged);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (notifications). Using local offline storage.");
@@ -584,15 +603,15 @@ export default function App() {
               handleQuotaErrorGlobal(err);
             }),
 
-            onSnapshot(collection(db, "chats"), (snapshot) => {
+            onSnapshot(collection(db, "chats"), async (snapshot) => {
               const list: ChatMessage[] = [];
               snapshot.forEach(docSnap => {
                 list.push(docSnap.data() as ChatMessage);
               });
-              list.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-              updateFirestoreCache("paopao_chats", list);
-              localStorage.setItem("paopao_chats", JSON.stringify(list));
-              setChats(list);
+              const merged = await syncAndMergeWithIndexedDB<ChatMessage>("chats", list);
+              updateFirestoreCache("paopao_chats", merged);
+              localStorage.setItem("paopao_chats", JSON.stringify(merged));
+              setChats(merged);
             }, (err) => {
               if (isQuotaError(err)) {
                 console.warn("Firestore sync quota limit exceeded (chats). Using local offline storage.");
@@ -1227,7 +1246,7 @@ export default function App() {
   const handleRequestWithdrawal = (amount: number) => {
     if (!currentUser) return;
     const newRequest: WithdrawalRequest = {
-      id: `W-${Date.now()}`,
+      id: `W-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
       merchantId: currentUser.id,
       merchantPhone: currentUser.phone,
       merchantName: currentUser.name,
@@ -1238,9 +1257,7 @@ export default function App() {
       bankHolderName: currentUser.bankHolderName || currentUser.name || '',
       createdAt: new Date().toISOString()
     };
-    const updatedWithdrawals = [newRequest, ...withdrawals];
-    setWithdrawals(updatedWithdrawals);
-    setStoredData("paopao_withdrawals", updatedWithdrawals);
+    handleUpdateWithdrawals([newRequest]);
     syncFromLocalStorage();
     logOnlineAction(
       "withdrawals",
@@ -1248,6 +1265,28 @@ export default function App() {
       `ผู้ใช้ชื่อ ${currentUser.name} ส่งคำขอถอนเงินจำนวน ฿${amount} สถานะ: pending`,
       `${currentUser.name} (${currentUser.id})`
     );
+  };
+
+  const handleUpdateDeposits = (incoming: DepositRequest[]) => {
+    setDeposits(prev => {
+      const map = new Map<string, DepositRequest>();
+      prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
+      incoming.forEach(d => { if (d && d.id) map.set(d.id, d); });
+      const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setStoredData("paopao_deposits", merged);
+      return merged;
+    });
+  };
+
+  const handleUpdateWithdrawals = (incoming: WithdrawalRequest[]) => {
+    setWithdrawals(prev => {
+      const map = new Map<string, WithdrawalRequest>();
+      prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
+      incoming.forEach(w => { if (w && w.id) map.set(w.id, w); });
+      const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setStoredData("paopao_withdrawals", merged);
+      return merged;
+    });
   };
 
   return (
@@ -1340,7 +1379,7 @@ export default function App() {
             onRequestWithdrawal={handleRequestWithdrawal}
             onMerchantAcceptOrder={handleMerchantAcceptOrder}
             onNavigate={(tab) => setActiveTab(tab)}
-            onUpdateDeposits={(updated) => { setDeposits(updated); setStoredData("paopao_deposits", updated); }}
+            onUpdateDeposits={handleUpdateDeposits}
             products={products}
             onEditProduct={handleEditProduct}
           />
@@ -1389,10 +1428,10 @@ export default function App() {
                 });
               }
             }}
-            onUpdateWithdrawals={(updated) => { setWithdrawals(updated); setStoredData("paopao_withdrawals", updated); }}
+            onUpdateWithdrawals={handleUpdateWithdrawals}
             onUpdateNotifications={(updated) => { setNotifications(updated); setStoredData("paopao_notifications", updated); }}
             onUpdateChats={(updated) => { setChats(updated); setStoredData("paopao_chats", updated); }}
-            onUpdateDeposits={(updated) => { setDeposits(updated); setStoredData("paopao_deposits", updated); }}
+            onUpdateDeposits={handleUpdateDeposits}
             onManualRefresh={syncFromLocalStorage}
             onClose={() => setActiveTab('profile')}
           />
