@@ -729,8 +729,13 @@ export default function HomeTab({
               <img 
                 src={url || undefined} 
                 alt={`Promotion Slide ${idx + 1}`} 
+                loading={idx === 0 ? "eager" : "lazy"}
+                decoding="async"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=1200";
+                }}
               />
               {/* Soft visual overlays */}
               {url === loanBannerUrl ? (
@@ -922,20 +927,36 @@ export default function HomeTab({
         </div>
 
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm p-8 flex flex-col items-center justify-center min-h-[260px]">
-            <div className="relative mb-4 flex items-center justify-center">
-              <div className="w-14 h-14 rounded-full border-2 border-red-100 border-t-red-600 border-r-rose-500 animate-spin"></div>
-              <span className="absolute text-xl font-black font-serif text-red-600 animate-spin select-none tracking-tighter">
-                S
-              </span>
-            </div>
-            
-            <h3 className="text-base sm:text-lg font-black uppercase tracking-widest font-display animate-shimmer-loading mb-1">
-              SEPHORA LOADING....
-            </h3>
-            <p className="text-xs sm:text-sm font-bold animate-shimmer-subtext tracking-wide">
-              โปรดรอสักครู่ กำลังโหลด...
-            </p>
+          <div className="text-center py-12 bg-white rounded-3xl border border-gray-100 shadow-sm p-8 flex flex-col items-center justify-center min-h-[220px]">
+            {products.length === 0 ? (
+              <>
+                <div className="w-10 h-10 rounded-full border-2 border-red-100 border-t-red-600 animate-spin mb-3"></div>
+                <h3 className="text-sm font-bold text-gray-700 font-display">
+                  กำลังเตรียมข้อมูลสินค้า...
+                </h3>
+              </>
+            ) : (
+              <>
+                <div className="text-3xl mb-2">🔍</div>
+                <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-1">
+                  ไม่พบสินค้าที่ตรงกับการค้นหา
+                </h3>
+                <p className="text-xs text-gray-500 mb-4">
+                  ลองเปลี่ยนคำค้นหาหรือเลือกดูหมวดหมู่อื่น
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory('ALL');
+                    setSearchQuery('');
+                    setCurrentPage(1);
+                  }}
+                  className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  แสดงสินค้าทั้งหมด
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -992,8 +1013,13 @@ export default function HomeTab({
                       <img 
                         src={p.image || undefined} 
                         alt={p.name} 
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=400";
+                        }}
                       />
                       {isOut && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white backdrop-blur-[1px]">
@@ -2098,8 +2124,13 @@ export default function HomeTab({
                     <img 
                       src={((selectedProductDetails.images && selectedProductDetails.images.length > 0) ? (selectedProductDetails.images[activeDetailImgIdx] || selectedProductDetails.image) : selectedProductDetails.image) || undefined} 
                       alt={selectedProductDetails.name} 
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover transition-all duration-300"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=600";
+                      }}
                     />
                     {(selectedProductDetails.totalStock <= 0 || calculateStockForSelection(selectedProductDetails, modalSelections) <= 0) && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white backdrop-blur-[1px]">
@@ -2126,8 +2157,13 @@ export default function HomeTab({
                           <img 
                             src={imgUrl || undefined} 
                             alt={`Thumbnail ${index + 1}`} 
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&q=80&w=200";
+                            }}
                           />
                         </button>
                       ))}
