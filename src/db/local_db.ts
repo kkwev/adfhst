@@ -5,6 +5,8 @@
 
 import { User, Product, Order, ChatMessage, SystemNotification, WithdrawalRequest, SystemSettings, OnlineActionLog, DepositRequest } from '../types';
 import { saveItemsToIndexedDB } from './indexed_db';
+import { safeStorage } from './safe_storage';
+import { parseDateSafe } from '../utils/thaiTime';
 
 // Default initial data to seed the application
 export const DEFAULT_SETTINGS: SystemSettings = {
@@ -218,7 +220,7 @@ export const SEED_WITHDRAWALS: WithdrawalRequest[] = [
 
 // Initialize database with seed data if vacant
 export function initializeDB() {
-  const existingUsersRaw = localStorage.getItem("paopao_users");
+  const existingUsersRaw = safeStorage.getItem("paopao_users");
   if (existingUsersRaw) {
     try {
       let uList: User[] = JSON.parse(existingUsersRaw);
@@ -248,37 +250,37 @@ export function initializeDB() {
         wallet: 15000,
         avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150"
       });
-      localStorage.setItem("paopao_users", JSON.stringify(uList));
+      safeStorage.setItem("paopao_users", JSON.stringify(uList));
     } catch (e) {
-      localStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
+      safeStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
     }
   } else {
-    localStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
+    safeStorage.setItem("paopao_users", JSON.stringify(SEED_USERS));
   }
 
-  if (!localStorage.getItem("paopao_products")) {
-    localStorage.setItem("paopao_products", JSON.stringify(SEED_PRODUCTS));
+  if (!safeStorage.getItem("paopao_products")) {
+    safeStorage.setItem("paopao_products", JSON.stringify(SEED_PRODUCTS));
   }
-  if (!localStorage.getItem("paopao_notifications")) {
-    localStorage.setItem("paopao_notifications", JSON.stringify(SEED_NOTIFICATIONS));
+  if (!safeStorage.getItem("paopao_notifications")) {
+    safeStorage.setItem("paopao_notifications", JSON.stringify(SEED_NOTIFICATIONS));
   }
-  if (!localStorage.getItem("paopao_orders")) {
-    localStorage.setItem("paopao_orders", JSON.stringify(SEED_ORDERS));
+  if (!safeStorage.getItem("paopao_orders")) {
+    safeStorage.setItem("paopao_orders", JSON.stringify(SEED_ORDERS));
   }
-  if (!localStorage.getItem("paopao_chats")) {
-    localStorage.setItem("paopao_chats", JSON.stringify(SEED_CHATS));
+  if (!safeStorage.getItem("paopao_chats")) {
+    safeStorage.setItem("paopao_chats", JSON.stringify(SEED_CHATS));
   }
-  if (!localStorage.getItem("paopao_withdrawals")) {
-    localStorage.setItem("paopao_withdrawals", JSON.stringify(SEED_WITHDRAWALS));
+  if (!safeStorage.getItem("paopao_withdrawals")) {
+    safeStorage.setItem("paopao_withdrawals", JSON.stringify(SEED_WITHDRAWALS));
   }
-  if (!localStorage.getItem("paopao_deposits")) {
-    localStorage.setItem("paopao_deposits", JSON.stringify([]));
+  if (!safeStorage.getItem("paopao_deposits")) {
+    safeStorage.setItem("paopao_deposits", JSON.stringify([]));
   }
-  if (!localStorage.getItem("paopao_settings")) {
-    localStorage.setItem("paopao_settings", JSON.stringify(DEFAULT_SETTINGS));
+  if (!safeStorage.getItem("paopao_settings")) {
+    safeStorage.setItem("paopao_settings", JSON.stringify(DEFAULT_SETTINGS));
   }
-  if (!localStorage.getItem("paopao_online_actions_log")) {
-    localStorage.setItem("paopao_online_actions_log", JSON.stringify([
+  if (!safeStorage.getItem("paopao_online_actions_log")) {
+    safeStorage.setItem("paopao_online_actions_log", JSON.stringify([
       {
         id: "LOG-INIT-001",
         timestamp: new Date().toISOString(),
@@ -311,7 +313,7 @@ export function registerExternalSync(cb: (key: string, value: any) => void) {
 
 // Get typed tables with permanent deduplication & merge against memory vault
 export function getStoredData<T>(key: string, defaultVal: T): T {
-  const data = localStorage.getItem(key);
+  const data = safeStorage.getItem(key);
   let parsed: any = null;
   if (data) {
     try {
@@ -345,17 +347,17 @@ export function getStoredData<T>(key: string, defaultVal: T): T {
     // 3. If vault has items, return the complete merged list from vault
     if (vault.size > 0) {
       const mergedList = Array.from(vault.values());
-      // Sort by createdAt descending if present
+      // Sort by createdAt descending if present (bulletproof parseDateSafe for iOS)
       mergedList.sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        const timeA = a.createdAt ? parseDateSafe(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? parseDateSafe(b.createdAt).getTime() : 0;
         return timeB - timeA;
       });
 
-      // Keep localStorage in sync if size differs
+      // Keep storage in sync if size differs
       if (!Array.isArray(parsed) || parsed.length < mergedList.length) {
         try {
-          localStorage.setItem(key, JSON.stringify(mergedList));
+          safeStorage.setItem(key, JSON.stringify(mergedList));
         } catch (e) {}
       }
 
@@ -374,10 +376,10 @@ export function setStoredData<T>(key: string, value: T): void {
   // 1. Update memory vault permanently with deep merge
   const vault = memoryVault[key];
   if (vault && Array.isArray(value)) {
-    // If vault is currently empty, load whatever was in localStorage first
+    // If vault is currently empty, load whatever was in storage first
     if (vault.size === 0) {
       try {
-        const existingLocal = localStorage.getItem(key);
+        const existingLocal = safeStorage.getItem(key);
         if (existingLocal) {
           const parsed = JSON.parse(existingLocal);
           if (Array.isArray(parsed)) {
@@ -401,19 +403,19 @@ export function setStoredData<T>(key: string, value: T): void {
     // Produce the full merged, sorted list to persist across all storage layers
     const mergedList = Array.from(vault.values());
     mergedList.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const timeA = a.createdAt ? parseDateSafe(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? parseDateSafe(b.createdAt).getTime() : 0;
       return timeB - timeA;
     });
 
     valueToPersist = mergedList;
   }
 
-  // 2. Persist full merged list to localStorage safely
+  // 2. Persist full merged list to storage safely
   try {
-    localStorage.setItem(key, JSON.stringify(valueToPersist));
+    safeStorage.setItem(key, JSON.stringify(valueToPersist));
   } catch (e) {
-    console.warn(`setStoredData localStorage quota warning for "${key}":`, e);
+    console.warn(`setStoredData storage quota warning for "${key}":`, e);
     // If saving full array fails (e.g. large slip images in deposits), try saving with compressed slips
     if (Array.isArray(valueToPersist) && key === "paopao_deposits") {
       try {
@@ -423,7 +425,7 @@ export function setStoredData<T>(key: string, value: T): void {
             ? 'image_saved_in_vault' 
             : d.slipImage
         }));
-        localStorage.setItem(key, JSON.stringify(trimmed));
+        safeStorage.setItem(key, JSON.stringify(trimmed));
       } catch (err) {}
     }
   }
@@ -456,7 +458,7 @@ export function setStoredData<T>(key: string, value: T): void {
 
 export function getOnlineActionLogs(): OnlineActionLog[] {
   try {
-    const raw = localStorage.getItem("paopao_online_actions_log");
+    const raw = safeStorage.getItem("paopao_online_actions_log");
     if (!raw) return [];
     return JSON.parse(raw);
   } catch (e) {
@@ -472,7 +474,7 @@ export function logOnlineAction(
 ): void {
   try {
     const logs = getOnlineActionLogs();
-    const isQuotaExceeded = localStorage.getItem("paopao_firestore_quota_exceeded") === "true";
+    const isQuotaExceeded = safeStorage.getItem("paopao_firestore_quota_exceeded") === "true";
     const status = isQuotaExceeded ? ("offline_saved" as const) : ("cloud_synced" as const);
     
     const newLog: OnlineActionLog = {
@@ -487,17 +489,19 @@ export function logOnlineAction(
     
     logs.unshift(newLog); // newer first
     
-    // Cap logs at 50 items to avoid running out of localstorage space
+    // Cap logs at 50 items to avoid running out of storage space
     if (logs.length > 50) {
       logs.splice(50);
     }
     
     try {
-      localStorage.setItem("paopao_online_actions_log", JSON.stringify(logs));
+      safeStorage.setItem("paopao_online_actions_log", JSON.stringify(logs));
     } catch (e) {}
     
     // Dispatch a custom event so components can listen to changes immediately
-    window.dispatchEvent(new CustomEvent("paopao_online_action_logged", { detail: newLog }));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent("paopao_online_action_logged", { detail: newLog }));
+    }
   } catch (e) {
     console.error("Failed to log online action:", e);
   }
