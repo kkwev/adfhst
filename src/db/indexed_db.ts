@@ -103,14 +103,40 @@ export async function syncAndMergeWithIndexedDB<T extends { id: string; createdA
     const persisted = await getItemsFromIndexedDB<T>(storeName);
     const itemMap = new Map<string, T>();
 
-    // 1. Load all historically persisted items
+    // 1. Ingest localStorage items if present
+    const lsKeyMap: Record<string, string> = {
+      "deposits": "paopao_deposits",
+      "withdrawals": "paopao_withdrawals",
+      "orders": "paopao_orders",
+      "users": "paopao_users",
+      "notifications": "paopao_notifications",
+      "chats": "paopao_chats"
+    };
+    const lsKey = lsKeyMap[storeName];
+    if (lsKey) {
+      try {
+        const raw = localStorage.getItem(lsKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            for (const item of parsed) {
+              if (item && item.id) {
+                itemMap.set(item.id, item);
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Load all historically persisted items from IndexedDB
     for (const item of persisted) {
       if (item && item.id) {
         itemMap.set(item.id, item);
       }
     }
 
-    // 2. Overlay incoming items (newer/updated data takes priority)
+    // 3. Overlay incoming items (newer/updated data takes priority)
     for (const item of incomingItems) {
       if (item && item.id) {
         itemMap.set(item.id, item);
@@ -126,8 +152,13 @@ export async function syncAndMergeWithIndexedDB<T extends { id: string; createdA
       return timeB - timeA;
     });
 
-    // Save full merged list back to IndexedDB asynchronously
+    // Save full merged list back to IndexedDB and localStorage
     saveItemsToIndexedDB(storeName, mergedList).catch(() => {});
+    if (lsKey) {
+      try {
+        localStorage.setItem(lsKey, JSON.stringify(mergedList));
+      } catch (e) {}
+    }
 
     return mergedList;
   } catch (e) {
