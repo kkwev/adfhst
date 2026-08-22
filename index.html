@@ -28,62 +28,61 @@
     <meta name="twitter:image" content="https://ais-pre-gqghljcpxacus4prddvzdw-1047113194423.asia-southeast1.run.app/sephora.png" />
   </head>
   <body style="background-color: #fafafa; margin: 0; padding: 0; min-height: 100vh; color: #171717; -webkit-font-smoothing: antialiased;">
-    <div id="root">
-      <div id="initial-splash" style="position: fixed; inset: 0; z-index: 999999; background-color: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: system-ui, -apple-system, sans-serif; transition: opacity 0.3s ease-out;">
-        <style>
-          @keyframes sephora-pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.03); opacity: 0.85; }
-          }
-          .splash-title {
-            font-size: 2.25rem;
-            font-weight: 900;
-            letter-spacing: 0.3em;
-            margin: 0;
-            padding-left: 0.3em;
-            color: #111827;
-            animation: sephora-pulse 2s ease-in-out infinite;
-          }
-          @keyframes bar-move {
-            0% { left: -100%; }
-            100% { left: 100%; }
-          }
-          .splash-bar {
-            position: relative;
-            width: 120px;
-            height: 3px;
-            background-color: #e5e7eb;
-            overflow: hidden;
-            border-radius: 9999px;
-            margin-top: 18px;
-          }
-          .splash-bar-inner {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 50%;
-            background: linear-gradient(90deg, #111827, #ef4444, #111827);
-            animation: bar-move 1.2s ease-in-out infinite;
-          }
-        </style>
-        <div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;">
-          <h1 class="splash-title">SEPHORA</h1>
-          <p style="color: #6b7280; font-size: 11px; margin-top: 8px; margin-bottom: 0; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;">THAILAND</p>
-          <div class="splash-bar">
-            <div class="splash-bar-inner"></div>
-          </div>
+    <div id="initial-splash" style="position: fixed; inset: 0; z-index: 999999; pointer-events: none; background-color: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; transition: opacity 0.3s ease-out;">
+      <style>
+        @keyframes sephora-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.03); opacity: 0.85; }
+        }
+        .splash-title {
+          font-size: 2.25rem;
+          font-weight: 900;
+          letter-spacing: 0.3em;
+          margin: 0;
+          padding-left: 0.3em;
+          color: #111827;
+          animation: sephora-pulse 2s ease-in-out infinite;
+        }
+        @keyframes bar-move {
+          0% { left: -100%; }
+          100% { left: 100%; }
+        }
+        .splash-bar {
+          position: relative;
+          width: 120px;
+          height: 3px;
+          background-color: #e5e7eb;
+          overflow: hidden;
+          border-radius: 9999px;
+          margin-top: 18px;
+        }
+        .splash-bar-inner {
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          width: 50%;
+          background: linear-gradient(90deg, #111827, #ef4444, #111827);
+          animation: bar-move 1.2s ease-in-out infinite;
+        }
+      </style>
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;">
+        <h1 class="splash-title">SEPHORA</h1>
+        <p style="color: #6b7280; font-size: 11px; margin-top: 8px; margin-bottom: 0; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;">THAILAND</p>
+        <div class="splash-bar">
+          <div class="splash-bar-inner"></div>
         </div>
       </div>
     </div>
+    <div id="root"></div>
     <script>
-      // Immediate failsafe: remove static splash in maximum 350ms even if network or scripts are slow
+      // Immediate failsafe: remove static splash smoothly after load
       setTimeout(function() {
         var s = document.getElementById('initial-splash');
         if (s) {
           s.style.opacity = '0';
           setTimeout(function() {
             if (s && s.parentNode) s.parentNode.removeChild(s);
-          }, 250);
+          }, 300);
         }
       }, 350);
     </script>
