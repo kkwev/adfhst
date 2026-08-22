@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth, signInAnonymously } from "firebase/auth";
 
@@ -13,7 +13,18 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
+
+// Initialize Firestore with Auto-Detect Long-Polling for rock-solid stability on iOS Safari & mobile devices
+let firestoreDb;
+try {
+  firestoreDb = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+  }, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
+} catch (e) {
+  firestoreDb = getFirestore(app, "ai-studio-77b32e73-4355-4202-b52b-d1541ad1eaeb");
+}
+
+export const db = firestoreDb;
 export const storage = getStorage(app);
 storage.maxUploadRetryTime = 2500; // 2.5 seconds max upload retry limit for super fast response
 storage.maxOperationRetryTime = 2500; // 2.5 seconds max operation retry limit
@@ -27,3 +38,4 @@ signInAnonymously(auth)
   .catch((err) => {
     console.warn("Firebase Auth: Anonymous sign-in failed (make sure Anonymous Auth is enabled in Firebase Console):", err);
   });
+
