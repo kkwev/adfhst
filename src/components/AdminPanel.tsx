@@ -15,6 +15,7 @@ import { logOnlineAction, getOnlineActionLogs } from '../db/local_db';
 import { compressImage, uploadImageToCloud } from '../db/image_compressor';
 import { formatThaiDateTime, formatThaiDateTimeStandard, formatThaiChatTime } from '../utils/thaiTime';
 import { THAI_BANKS, BankLogo, findBank, renderSelectedBankInfo } from '../utils/bankUtils';
+import { safeStorage } from '../db/safe_storage';
 
 interface AdminPanelProps {
   currentUser: User | null;
@@ -3263,7 +3264,7 @@ export default function AdminPanel({
                           status: "offline_saved" as const
                         }
                       ];
-                      localStorage.setItem("paopao_online_actions_log", JSON.stringify(resetLog));
+                      safeStorage.setItem("paopao_online_actions_log", JSON.stringify(resetLog));
                       setActionLogs(resetLog);
                       alert("ล้างบันทึกประวัติการกระทำออนไลน์สำเร็จเรียบร้อยค่ะ!");
                     }
