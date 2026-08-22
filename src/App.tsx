@@ -20,6 +20,7 @@ import {
 import { 
   initializeDB, getStoredData, setStoredData, DEFAULT_SETTINGS, registerExternalSync, logOnlineAction, getOnlineActionLogs 
 } from './db/local_db';
+import { safeStorage } from './db/safe_storage';
 import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "./db/firebase";
 import { initializeFirestoreDB, saveToFirestore, deleteFromFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync, forceReconnectAndSyncWithoutCheck } from "./db/firestore_service";
@@ -62,7 +63,7 @@ export default function App() {
   // Master databases loaded synchronously and immediately from persistent cache
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
-      const stored = localStorage.getItem("paopao_session_user");
+      const stored = safeStorage.getItem("paopao_session_user");
       return stored ? JSON.parse(stored) : null;
     } catch (e) {
       return null;
@@ -107,48 +108,7 @@ export default function App() {
     }
   }, []);
 
-  // Intercept any click on buttons/interactive elements when user is not logged in to redirect instantly
-  useEffect(() => {
-    if (currentUser || activeTab === 'login') return;
-
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (!target) return;
-
-      let current: HTMLElement | null = target;
-      let isInteractive = false;
-      
-      while (current && current !== document.body) {
-        const tagName = current.tagName.toLowerCase();
-        if (
-          tagName === 'button' ||
-          tagName === 'a' ||
-          current.getAttribute('role') === 'button' ||
-          current.classList.contains('cursor-pointer') ||
-          tagName === 'input' ||
-          tagName === 'select' ||
-          tagName === 'textarea'
-        ) {
-          isInteractive = true;
-          break;
-        }
-        current = current.parentElement;
-      }
-
-      if (isInteractive) {
-        e.preventDefault();
-        e.stopPropagation();
-        setActiveTab('login');
-      }
-    };
-
-    document.addEventListener('click', handleGlobalClick, true);
-    return () => {
-      document.removeEventListener('click', handleGlobalClick, true);
-    };
-  }, [currentUser, activeTab]);
-
-  // Read latest tables from localStorage
+  // Read latest tables from local cache
   const syncFromLocalStorage = useCallback(() => {
     const rawSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
     const loadedSettings = {
@@ -211,7 +171,7 @@ export default function App() {
             idbDeposits.forEach(d => { if (d && d.id) map.set(d.id, d); });
             prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            localStorage.setItem("paopao_deposits", JSON.stringify(merged));
+            safeStorage.setItem("paopao_deposits", JSON.stringify(merged));
             return merged;
           });
         }
@@ -222,7 +182,7 @@ export default function App() {
             idbWithdrawals.forEach(w => { if (w && w.id) map.set(w.id, w); });
             prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+            safeStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
             return merged;
           });
         }
@@ -233,7 +193,7 @@ export default function App() {
             idbOrders.forEach(o => { if (o && o.id) map.set(o.id, o); });
             prev.forEach(o => { if (o && o.id) map.set(o.id, o); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            localStorage.setItem("paopao_orders", JSON.stringify(merged));
+            safeStorage.setItem("paopao_orders", JSON.stringify(merged));
             return merged;
           });
         }
@@ -249,7 +209,7 @@ export default function App() {
       if (refUser) {
         // Only update if something actually changed to prevent infinite rendering cascades
         if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
-          localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
+          safeStorage.setItem("paopao_session_user", JSON.stringify(refUser));
           return refUser;
         }
       }
@@ -319,7 +279,7 @@ export default function App() {
     if (matchedUser) {
       if (JSON.stringify(matchedUser) !== JSON.stringify(currentUser)) {
         setCurrentUser(matchedUser);
-        localStorage.setItem("paopao_session_user", JSON.stringify(matchedUser));
+        safeStorage.setItem("paopao_session_user", JSON.stringify(matchedUser));
       }
     }
   }, [users, currentUser?.id]);
@@ -337,7 +297,7 @@ export default function App() {
             if (!prevUser) return null;
             const matched = updatedUsers.find(u => u.id === prevUser.id);
             if (matched && JSON.stringify(matched) !== JSON.stringify(prevUser)) {
-              localStorage.setItem("paopao_session_user", JSON.stringify(matched));
+              safeStorage.setItem("paopao_session_user", JSON.stringify(matched));
               return matched;
             }
             return prevUser;
@@ -410,7 +370,7 @@ export default function App() {
 
     // Clear legacy quota exceeded flag on load since user has upgraded to Blaze Plan!
     try {
-      localStorage.removeItem("paopao_firestore_quota_exceeded");
+      safeStorage.removeItem("paopao_firestore_quota_exceeded");
     } catch (e) {}
 
     onFirestoreQuotaExceeded(() => {
@@ -423,7 +383,7 @@ export default function App() {
     });
 
     // Check sessions if cached
-    const storedSession = localStorage.getItem("paopao_session_user");
+    const storedSession = safeStorage.getItem("paopao_session_user");
     if (storedSession) {
       try {
         const u = JSON.parse(storedSession) as User;
@@ -450,7 +410,7 @@ export default function App() {
 
         // Set up real-time snapshot listeners for multi-device live replication (bypass if quota exceeded)
         // ONLY start the snapshot listeners AFTER Firestore has successfully initialized and synced!
-        if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
+        if (safeStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
           unsubscibers = [
             onSnapshot(collection(db, "users"), (snapshot) => {
               let list: User[] = [];
@@ -523,7 +483,7 @@ export default function App() {
 
               list.sort((a, b) => a.id.localeCompare(b.id));
               updateFirestoreCache("paopao_users", list);
-              localStorage.setItem("paopao_users", JSON.stringify(list));
+              safeStorage.setItem("paopao_users", JSON.stringify(list));
               setUsers(list);
               
               setCurrentUser(prevUser => {
@@ -531,7 +491,7 @@ export default function App() {
                 const refUser = list.find(u => u.id === prevUser.id);
                 if (refUser) {
                   if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
-                    localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
+                    safeStorage.setItem("paopao_session_user", JSON.stringify(refUser));
                     return refUser;
                   }
                 }
@@ -555,7 +515,7 @@ export default function App() {
               list.sort((a, b) => a.id.localeCompare(b.id));
               const syncedList = list.map(syncProductImages);
               updateFirestoreCache("paopao_products", syncedList);
-              localStorage.setItem("paopao_products", JSON.stringify(syncedList));
+              safeStorage.setItem("paopao_products", JSON.stringify(syncedList));
               setProducts(syncedList);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -573,7 +533,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<Order>("orders", list);
               updateFirestoreCache("paopao_orders", merged);
-              localStorage.setItem("paopao_orders", JSON.stringify(merged));
+              safeStorage.setItem("paopao_orders", JSON.stringify(merged));
               setOrders(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -591,7 +551,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<SystemNotification>("notifications", list);
               updateFirestoreCache("paopao_notifications", merged);
-              localStorage.setItem("paopao_notifications", JSON.stringify(merged));
+              safeStorage.setItem("paopao_notifications", JSON.stringify(merged));
               setNotifications(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -609,7 +569,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<ChatMessage>("chats", list);
               updateFirestoreCache("paopao_chats", merged);
-              localStorage.setItem("paopao_chats", JSON.stringify(merged));
+              safeStorage.setItem("paopao_chats", JSON.stringify(merged));
               setChats(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -627,7 +587,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<WithdrawalRequest>("withdrawals", list);
               updateFirestoreCache("paopao_withdrawals", merged);
-              localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+              safeStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
               setWithdrawals(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -645,7 +605,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<DepositRequest>("deposits", list);
               updateFirestoreCache("paopao_deposits", merged);
-              localStorage.setItem("paopao_deposits", JSON.stringify(merged));
+              safeStorage.setItem("paopao_deposits", JSON.stringify(merged));
               setDeposits(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -660,7 +620,7 @@ export default function App() {
               if (docSnap.exists()) {
                 const data = docSnap.data() as SystemSettings;
                 updateFirestoreCache("paopao_settings", data);
-                localStorage.setItem("paopao_settings", JSON.stringify(data));
+                safeStorage.setItem("paopao_settings", JSON.stringify(data));
                 setSettings(data);
               }
             }, (err) => {
@@ -838,14 +798,14 @@ export default function App() {
     if (!currentUser) return;
 
     // Allocate unique order ID starting at OR34589 and incrementing safely
-    let lastOrderNum = localStorage.getItem("paopao_last_order_num");
+    let lastOrderNum = safeStorage.getItem("paopao_last_order_num");
     let nextNum: number;
     if (!lastOrderNum) {
       nextNum = 34589;
     } else {
       nextNum = Number(lastOrderNum) + Math.floor(Math.random() * 45) + 5;
     }
-    localStorage.setItem("paopao_last_order_num", String(nextNum));
+    safeStorage.setItem("paopao_last_order_num", String(nextNum));
     
     // Ensure uniqueness by checking existing order IDs
     let orderId = `OR${nextNum}`;
@@ -966,7 +926,7 @@ export default function App() {
     const syncedBuyer = newUsers.find(u => u.id === currentUser.id);
     if (syncedBuyer) {
       setCurrentUser(syncedBuyer);
-      localStorage.setItem("paopao_session_user", JSON.stringify(syncedBuyer));
+      safeStorage.setItem("paopao_session_user", JSON.stringify(syncedBuyer));
     }
 
     // Clear active matched items from cart
@@ -1046,7 +1006,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("paopao_session_user");
+    safeStorage.removeItem("paopao_session_user");
     setCurrentUser(null);
     setCart([]);
     setActiveTab('home');
@@ -1184,14 +1144,14 @@ export default function App() {
       console.error(e);
       setIsConnectingCloud(false);
       alert(`⚠️ บังคับเปิดออนไลน์แล้ว แต่พบปัญหาการเขียนข้อมูลลงคลาวด์บางส่วน: "${e?.message || e}" ระบบได้ล้างสถานะออฟไลน์ให้เรียบร้อยแล้วเพื่อให้ตัวเครื่องพยายามซิงก์แบบเรียลไทม์โดยตรงค่ะ`);
-      localStorage.removeItem("paopao_firestore_quota_exceeded");
+      safeStorage.removeItem("paopao_firestore_quota_exceeded");
       setFirestoreQuotaExceeded(false);
       window.location.reload();
     }
   };
 
   const handleLoginSuccess = (userObj: User) => {
-    localStorage.setItem("paopao_session_user", JSON.stringify(userObj));
+    safeStorage.setItem("paopao_session_user", JSON.stringify(userObj));
     setCurrentUser(userObj);
     setActiveTab("home");
     alert(`ยินดีต้อนรับกลับมาค่ะ คุณ ${userObj.name} 🎉`);
@@ -1207,7 +1167,7 @@ export default function App() {
     setUsers(updatedUsers);
     setStoredData("paopao_users", updatedUsers);
     logOnlineAction("users", "สมัครสมาชิกสำเร็จ", `ผู้ใช้ชื่อ ${newUserObj.name} (โทร: ${newUserObj.phone}) ลงทะเบียนสมัครสมาชิกใหม่สำเร็จ (บทบาท: ${newUserObj.role})`, `${newUserObj.name} (${newUserObj.id})`);
-    localStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
+    safeStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
     setCurrentUser(newUserObj);
     setActiveTab("home");
     alert("สมัครสมาชิกและเข้าสู่ระบบสำเร็จเรียบร้อยแล้วค่ะ! ยินดีต้อนรับสู่ SEPHORA THAILAND ค่ะ 🎉");
@@ -1403,7 +1363,7 @@ export default function App() {
                 const matched = updated.find(u => u.id === currentUser.id);
                 if (matched && JSON.stringify(matched) !== JSON.stringify(currentUser)) {
                   setCurrentUser(matched);
-                  localStorage.setItem("paopao_session_user", JSON.stringify(matched));
+                  safeStorage.setItem("paopao_session_user", JSON.stringify(matched));
                 }
               }
             }}
