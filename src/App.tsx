@@ -59,27 +59,43 @@ export default function App() {
   // Navigation states: 'home' | 'cart' | 'orders' | 'notifications' | 'profile' | 'admin' | 'login'
   const [activeTab, setActiveTab] = useState<string>('home');
 
-  // Master databases loaded from localStorage
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
-  const [users, setUsers] = useState<User[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [chats, setChats] = useState<ChatMessage[]>([]);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
-  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
+  // Master databases loaded synchronously and immediately from persistent cache
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem("paopao_session_user");
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [settings, setSettings] = useState<SystemSettings>(() => {
+    const raw = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...raw,
+      siteName: (!raw.siteName || raw.siteName === "PAOPAO") ? "Sephora Thailand" : raw.siteName,
+      siteLogo: (!raw.siteLogo || raw.siteLogo.includes("sephora-ar21.svg")) ? "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sephora_logo.svg/600px-Sephora_logo.svg.png" : raw.siteLogo,
+      customCategories: (raw.customCategories && raw.customCategories.length > 0)
+        ? raw.customCategories
+        : DEFAULT_SETTINGS.customCategories
+    };
+  });
+
+  const [users, setUsers] = useState<User[]>(() => getStoredData<User[]>("paopao_users", []));
+  const [products, setProducts] = useState<Product[]>(() => getStoredData<Product[]>("paopao_products", []).map(syncProductImages));
+  const [orders, setOrders] = useState<Order[]>(() => getStoredData<Order[]>("paopao_orders", []));
+  const [chats, setChats] = useState<ChatMessage[]>(() => getStoredData<ChatMessage[]>("paopao_chats", []));
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(() => getStoredData<WithdrawalRequest[]>("paopao_withdrawals", []));
+  const [notifications, setNotifications] = useState<SystemNotification[]>(() => getStoredData<SystemNotification[]>("paopao_notifications", []));
+  const [deposits, setDeposits] = useState<DepositRequest[]>(() => getStoredData<DepositRequest[]>("paopao_deposits", []));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(false);
   const [isConnectingCloud, setIsConnectingCloud] = useState<boolean>(false);
 
-  // Initial loading splash screen state
-  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
-  const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
-
-  // Manage splash screen fade out after app loads
+  // Fast non-blocking splash screen fade out on initial mount
   useEffect(() => {
-    // Gracefully fade out static splash from index.html
+    // Immediately fade out static splash from index.html
     const staticSplash = document.getElementById('initial-splash');
     if (staticSplash) {
       staticSplash.style.opacity = '0';
@@ -87,27 +103,7 @@ export default function App() {
         try {
           staticSplash.remove();
         } catch (e) {}
-      }, 500);
-    }
-
-    const finishLoading = () => {
-      setTimeout(() => {
-        setIsFadingOut(true);
-        setTimeout(() => {
-          setIsAppLoading(false);
-        }, 500);
-      }, 600);
-    };
-
-    if (document.readyState === 'complete') {
-      finishLoading();
-    } else {
-      window.addEventListener('load', finishLoading);
-      const fallbackTimer = setTimeout(finishLoading, 1800);
-      return () => {
-        window.removeEventListener('load', finishLoading);
-        clearTimeout(fallbackTimer);
-      };
+      }, 250);
     }
   }, []);
 
@@ -436,6 +432,9 @@ export default function App() {
         console.error(e);
       }
     }
+
+    // Immediately synchronize local data into state on mount with 0ms delay
+    syncFromLocalStorage();
 
     // Seed Firestore if empty, then sync and start listeners
     const setupAndSync = async () => {
@@ -1454,38 +1453,6 @@ export default function App() {
         ordersCount={currentUser ? orders.filter(o => o.customerId === currentUser.id && o.status !== 'completed' && o.status !== 'cancelled').length : 0}
         settings={settings}
       />
-
-      {/* DYNAMIC FULLSCREEN INITIAL LOADING OVERLAY (SUNLIGHT SHIMMER SEPHORA) */}
-      {isAppLoading && (
-        <div 
-          className={`fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
-            isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
-          }`}
-        >
-          <div className="relative flex flex-col items-center text-center px-4">
-            {/* Soft sunlight golden aura blur background */}
-            <div className="absolute w-[280px] h-[90px] bg-gradient-to-r from-amber-500/20 via-yellow-300/35 to-amber-500/20 rounded-full blur-2xl animate-pulse pointer-events-none" />
-            
-            {/* Shimmering SEPHORA Sunlight Text */}
-            <h1 className="text-4xl sm:text-5xl font-black tracking-[0.35em] pl-[0.35em] animate-sunlight-text drop-shadow-[0_0_25px_rgba(254,240,138,0.25)] font-display">
-              SEPHORA
-            </h1>
-            
-            <p className="text-[11px] font-semibold tracking-[0.2em] text-white/50 uppercase mt-2.5">
-              SEPHORA THAILAND
-            </p>
-
-            {/* Animated metallic sunlight loader bar */}
-            <div className="relative w-36 h-[2px] bg-white/15 overflow-hidden rounded-full mt-6">
-              <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-yellow-200 to-transparent animate-[bar-move_1.5s_ease-in-out_infinite]" />
-            </div>
-
-            <p className="text-[10px] font-medium text-white/40 mt-3">
-              กำลังโหลดข้อมูลและเตรียมระบบพร้อมใช้งาน...
-            </p>
-          </div>
-        </div>
-      )}
 
     </div>
   );
