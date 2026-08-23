@@ -13,7 +13,6 @@ import { User, Order, ChatMessage, SystemSettings, WithdrawalRequest, DepositReq
 import { compressImage, uploadImageToCloud } from '../db/image_compressor';
 import { formatThaiDateTimeStandard, formatThaiChatTime, formatThaiDateTime } from '../utils/thaiTime';
 import { THAI_BANKS, BankLogo, findBank, renderSelectedBankInfo } from '../utils/bankUtils';
-import { safeStorage } from '../db/safe_storage';
 
 interface ProfileTabProps {
   currentUser: User | null;
@@ -53,10 +52,10 @@ export default function ProfileTab({
   onEditProduct
 }: ProfileTabProps) {
   
-  // Retrieve all users from safeStorage to resolve buyer's account name
+  // Retrieve all users from localStorage to resolve buyer's account name
   const allUsersList: User[] = React.useMemo(() => {
     try {
-      return JSON.parse(safeStorage.getItem("paopao_users") || "[]");
+      return JSON.parse(localStorage.getItem("paopao_users") || "[]");
     } catch {
       return [];
     }
@@ -454,7 +453,7 @@ export default function ProfileTab({
     }
 
     let nextNumVal = 29416283;
-    const storedLastNum = safeStorage.getItem("paopao_last_deposit_number");
+    const storedLastNum = localStorage.getItem("paopao_last_deposit_number");
     if (storedLastNum) {
       const parsed = parseInt(storedLastNum, 10);
       if (!isNaN(parsed)) {
@@ -463,7 +462,7 @@ export default function ProfileTab({
         nextNumVal = parsed + randomGap;
       }
     }
-    safeStorage.setItem("paopao_last_deposit_number", nextNumVal.toString());
+    localStorage.setItem("paopao_last_deposit_number", nextNumVal.toString());
     const entropy = Math.random().toString(36).substring(2, 6).toUpperCase();
     const nextId = `DEP${nextNumVal}-${entropy}`;
 
