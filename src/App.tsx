@@ -20,7 +20,6 @@ import {
 import { 
   initializeDB, getStoredData, setStoredData, DEFAULT_SETTINGS, registerExternalSync, logOnlineAction, getOnlineActionLogs 
 } from './db/local_db';
-import { safeStorage } from './db/safe_storage';
 import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "./db/firebase";
 import { initializeFirestoreDB, saveToFirestore, deleteFromFirestore, onFirestoreQuotaExceeded, isQuotaError, updateFirestoreCache, disableFirestoreNetwork, tryForceReconnectAndSync, forceReconnectAndSyncWithoutCheck } from "./db/firestore_service";
@@ -60,43 +59,27 @@ export default function App() {
   // Navigation states: 'home' | 'cart' | 'orders' | 'notifications' | 'profile' | 'admin' | 'login'
   const [activeTab, setActiveTab] = useState<string>('home');
 
-  // Master databases loaded synchronously and immediately from persistent cache
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    try {
-      const stored = safeStorage.getItem("paopao_session_user");
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-
-  const [settings, setSettings] = useState<SystemSettings>(() => {
-    const raw = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...raw,
-      siteName: (!raw.siteName || raw.siteName === "PAOPAO") ? "Sephora Thailand" : raw.siteName,
-      siteLogo: (!raw.siteLogo || raw.siteLogo.includes("sephora-ar21.svg")) ? "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Sephora_logo.svg/600px-Sephora_logo.svg.png" : raw.siteLogo,
-      customCategories: (raw.customCategories && raw.customCategories.length > 0)
-        ? raw.customCategories
-        : DEFAULT_SETTINGS.customCategories
-    };
-  });
-
-  const [users, setUsers] = useState<User[]>(() => getStoredData<User[]>("paopao_users", []));
-  const [products, setProducts] = useState<Product[]>(() => getStoredData<Product[]>("paopao_products", []).map(syncProductImages));
-  const [orders, setOrders] = useState<Order[]>(() => getStoredData<Order[]>("paopao_orders", []));
-  const [chats, setChats] = useState<ChatMessage[]>(() => getStoredData<ChatMessage[]>("paopao_chats", []));
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>(() => getStoredData<WithdrawalRequest[]>("paopao_withdrawals", []));
-  const [notifications, setNotifications] = useState<SystemNotification[]>(() => getStoredData<SystemNotification[]>("paopao_notifications", []));
-  const [deposits, setDeposits] = useState<DepositRequest[]>(() => getStoredData<DepositRequest[]>("paopao_deposits", []));
+  // Master databases loaded from localStorage
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [settings, setSettings] = useState<SystemSettings>(DEFAULT_SETTINGS);
+  const [users, setUsers] = useState<User[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [chats, setChats] = useState<ChatMessage[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([]);
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  const [deposits, setDeposits] = useState<DepositRequest[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [firestoreQuotaExceeded, setFirestoreQuotaExceeded] = useState<boolean>(false);
   const [isConnectingCloud, setIsConnectingCloud] = useState<boolean>(false);
 
-  // Fast non-blocking splash screen fade out on initial mount
+  // Initial loading splash screen state
+  const [isAppLoading, setIsAppLoading] = useState<boolean>(true);
+  const [isFadingOut, setIsFadingOut] = useState<boolean>(false);
+
+  // Manage splash screen fade out after app loads
   useEffect(() => {
-    // Immediately fade out static splash from index.html
+    // Gracefully fade out static splash from index.html
     const staticSplash = document.getElementById('initial-splash');
     if (staticSplash) {
       staticSplash.style.opacity = '0';
@@ -104,11 +87,72 @@ export default function App() {
         try {
           staticSplash.remove();
         } catch (e) {}
-      }, 250);
+      }, 500);
+    }
+
+    const finishLoading = () => {
+      setTimeout(() => {
+        setIsFadingOut(true);
+        setTimeout(() => {
+          setIsAppLoading(false);
+        }, 500);
+      }, 600);
+    };
+
+    if (document.readyState === 'complete') {
+      finishLoading();
+    } else {
+      window.addEventListener('load', finishLoading);
+      const fallbackTimer = setTimeout(finishLoading, 1800);
+      return () => {
+        window.removeEventListener('load', finishLoading);
+        clearTimeout(fallbackTimer);
+      };
     }
   }, []);
 
-  // Read latest tables from local cache
+  // Intercept any click on buttons/interactive elements when user is not logged in to redirect instantly
+  useEffect(() => {
+    if (currentUser || activeTab === 'login') return;
+
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      let current: HTMLElement | null = target;
+      let isInteractive = false;
+      
+      while (current && current !== document.body) {
+        const tagName = current.tagName.toLowerCase();
+        if (
+          tagName === 'button' ||
+          tagName === 'a' ||
+          current.getAttribute('role') === 'button' ||
+          current.classList.contains('cursor-pointer') ||
+          tagName === 'input' ||
+          tagName === 'select' ||
+          tagName === 'textarea'
+        ) {
+          isInteractive = true;
+          break;
+        }
+        current = current.parentElement;
+      }
+
+      if (isInteractive) {
+        e.preventDefault();
+        e.stopPropagation();
+        setActiveTab('login');
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, true);
+    return () => {
+      document.removeEventListener('click', handleGlobalClick, true);
+    };
+  }, [currentUser, activeTab]);
+
+  // Read latest tables from localStorage
   const syncFromLocalStorage = useCallback(() => {
     const rawSettings = getStoredData<SystemSettings>("paopao_settings", DEFAULT_SETTINGS);
     const loadedSettings = {
@@ -171,7 +215,7 @@ export default function App() {
             idbDeposits.forEach(d => { if (d && d.id) map.set(d.id, d); });
             prev.forEach(d => { if (d && d.id) map.set(d.id, d); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            safeStorage.setItem("paopao_deposits", JSON.stringify(merged));
+            localStorage.setItem("paopao_deposits", JSON.stringify(merged));
             return merged;
           });
         }
@@ -182,7 +226,7 @@ export default function App() {
             idbWithdrawals.forEach(w => { if (w && w.id) map.set(w.id, w); });
             prev.forEach(w => { if (w && w.id) map.set(w.id, w); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            safeStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+            localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
             return merged;
           });
         }
@@ -193,7 +237,7 @@ export default function App() {
             idbOrders.forEach(o => { if (o && o.id) map.set(o.id, o); });
             prev.forEach(o => { if (o && o.id) map.set(o.id, o); });
             const merged = Array.from(map.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-            safeStorage.setItem("paopao_orders", JSON.stringify(merged));
+            localStorage.setItem("paopao_orders", JSON.stringify(merged));
             return merged;
           });
         }
@@ -209,7 +253,7 @@ export default function App() {
       if (refUser) {
         // Only update if something actually changed to prevent infinite rendering cascades
         if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
-          safeStorage.setItem("paopao_session_user", JSON.stringify(refUser));
+          localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
           return refUser;
         }
       }
@@ -279,7 +323,7 @@ export default function App() {
     if (matchedUser) {
       if (JSON.stringify(matchedUser) !== JSON.stringify(currentUser)) {
         setCurrentUser(matchedUser);
-        safeStorage.setItem("paopao_session_user", JSON.stringify(matchedUser));
+        localStorage.setItem("paopao_session_user", JSON.stringify(matchedUser));
       }
     }
   }, [users, currentUser?.id]);
@@ -297,7 +341,7 @@ export default function App() {
             if (!prevUser) return null;
             const matched = updatedUsers.find(u => u.id === prevUser.id);
             if (matched && JSON.stringify(matched) !== JSON.stringify(prevUser)) {
-              safeStorage.setItem("paopao_session_user", JSON.stringify(matched));
+              localStorage.setItem("paopao_session_user", JSON.stringify(matched));
               return matched;
             }
             return prevUser;
@@ -370,7 +414,7 @@ export default function App() {
 
     // Clear legacy quota exceeded flag on load since user has upgraded to Blaze Plan!
     try {
-      safeStorage.removeItem("paopao_firestore_quota_exceeded");
+      localStorage.removeItem("paopao_firestore_quota_exceeded");
     } catch (e) {}
 
     onFirestoreQuotaExceeded(() => {
@@ -383,7 +427,7 @@ export default function App() {
     });
 
     // Check sessions if cached
-    const storedSession = safeStorage.getItem("paopao_session_user");
+    const storedSession = localStorage.getItem("paopao_session_user");
     if (storedSession) {
       try {
         const u = JSON.parse(storedSession) as User;
@@ -392,9 +436,6 @@ export default function App() {
         console.error(e);
       }
     }
-
-    // Immediately synchronize local data into state on mount with 0ms delay
-    syncFromLocalStorage();
 
     // Seed Firestore if empty, then sync and start listeners
     const setupAndSync = async () => {
@@ -410,7 +451,7 @@ export default function App() {
 
         // Set up real-time snapshot listeners for multi-device live replication (bypass if quota exceeded)
         // ONLY start the snapshot listeners AFTER Firestore has successfully initialized and synced!
-        if (safeStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
+        if (localStorage.getItem("paopao_firestore_quota_exceeded") !== "true") {
           unsubscibers = [
             onSnapshot(collection(db, "users"), (snapshot) => {
               let list: User[] = [];
@@ -483,7 +524,7 @@ export default function App() {
 
               list.sort((a, b) => a.id.localeCompare(b.id));
               updateFirestoreCache("paopao_users", list);
-              safeStorage.setItem("paopao_users", JSON.stringify(list));
+              localStorage.setItem("paopao_users", JSON.stringify(list));
               setUsers(list);
               
               setCurrentUser(prevUser => {
@@ -491,7 +532,7 @@ export default function App() {
                 const refUser = list.find(u => u.id === prevUser.id);
                 if (refUser) {
                   if (JSON.stringify(refUser) !== JSON.stringify(prevUser)) {
-                    safeStorage.setItem("paopao_session_user", JSON.stringify(refUser));
+                    localStorage.setItem("paopao_session_user", JSON.stringify(refUser));
                     return refUser;
                   }
                 }
@@ -515,7 +556,7 @@ export default function App() {
               list.sort((a, b) => a.id.localeCompare(b.id));
               const syncedList = list.map(syncProductImages);
               updateFirestoreCache("paopao_products", syncedList);
-              safeStorage.setItem("paopao_products", JSON.stringify(syncedList));
+              localStorage.setItem("paopao_products", JSON.stringify(syncedList));
               setProducts(syncedList);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -533,7 +574,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<Order>("orders", list);
               updateFirestoreCache("paopao_orders", merged);
-              safeStorage.setItem("paopao_orders", JSON.stringify(merged));
+              localStorage.setItem("paopao_orders", JSON.stringify(merged));
               setOrders(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -551,7 +592,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<SystemNotification>("notifications", list);
               updateFirestoreCache("paopao_notifications", merged);
-              safeStorage.setItem("paopao_notifications", JSON.stringify(merged));
+              localStorage.setItem("paopao_notifications", JSON.stringify(merged));
               setNotifications(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -569,7 +610,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<ChatMessage>("chats", list);
               updateFirestoreCache("paopao_chats", merged);
-              safeStorage.setItem("paopao_chats", JSON.stringify(merged));
+              localStorage.setItem("paopao_chats", JSON.stringify(merged));
               setChats(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -587,7 +628,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<WithdrawalRequest>("withdrawals", list);
               updateFirestoreCache("paopao_withdrawals", merged);
-              safeStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
+              localStorage.setItem("paopao_withdrawals", JSON.stringify(merged));
               setWithdrawals(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -605,7 +646,7 @@ export default function App() {
               });
               const merged = await syncAndMergeWithIndexedDB<DepositRequest>("deposits", list);
               updateFirestoreCache("paopao_deposits", merged);
-              safeStorage.setItem("paopao_deposits", JSON.stringify(merged));
+              localStorage.setItem("paopao_deposits", JSON.stringify(merged));
               setDeposits(merged);
             }, (err) => {
               if (isQuotaError(err)) {
@@ -620,7 +661,7 @@ export default function App() {
               if (docSnap.exists()) {
                 const data = docSnap.data() as SystemSettings;
                 updateFirestoreCache("paopao_settings", data);
-                safeStorage.setItem("paopao_settings", JSON.stringify(data));
+                localStorage.setItem("paopao_settings", JSON.stringify(data));
                 setSettings(data);
               }
             }, (err) => {
@@ -798,14 +839,14 @@ export default function App() {
     if (!currentUser) return;
 
     // Allocate unique order ID starting at OR34589 and incrementing safely
-    let lastOrderNum = safeStorage.getItem("paopao_last_order_num");
+    let lastOrderNum = localStorage.getItem("paopao_last_order_num");
     let nextNum: number;
     if (!lastOrderNum) {
       nextNum = 34589;
     } else {
       nextNum = Number(lastOrderNum) + Math.floor(Math.random() * 45) + 5;
     }
-    safeStorage.setItem("paopao_last_order_num", String(nextNum));
+    localStorage.setItem("paopao_last_order_num", String(nextNum));
     
     // Ensure uniqueness by checking existing order IDs
     let orderId = `OR${nextNum}`;
@@ -926,7 +967,7 @@ export default function App() {
     const syncedBuyer = newUsers.find(u => u.id === currentUser.id);
     if (syncedBuyer) {
       setCurrentUser(syncedBuyer);
-      safeStorage.setItem("paopao_session_user", JSON.stringify(syncedBuyer));
+      localStorage.setItem("paopao_session_user", JSON.stringify(syncedBuyer));
     }
 
     // Clear active matched items from cart
@@ -1006,7 +1047,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    safeStorage.removeItem("paopao_session_user");
+    localStorage.removeItem("paopao_session_user");
     setCurrentUser(null);
     setCart([]);
     setActiveTab('home');
@@ -1144,14 +1185,14 @@ export default function App() {
       console.error(e);
       setIsConnectingCloud(false);
       alert(`⚠️ บังคับเปิดออนไลน์แล้ว แต่พบปัญหาการเขียนข้อมูลลงคลาวด์บางส่วน: "${e?.message || e}" ระบบได้ล้างสถานะออฟไลน์ให้เรียบร้อยแล้วเพื่อให้ตัวเครื่องพยายามซิงก์แบบเรียลไทม์โดยตรงค่ะ`);
-      safeStorage.removeItem("paopao_firestore_quota_exceeded");
+      localStorage.removeItem("paopao_firestore_quota_exceeded");
       setFirestoreQuotaExceeded(false);
       window.location.reload();
     }
   };
 
   const handleLoginSuccess = (userObj: User) => {
-    safeStorage.setItem("paopao_session_user", JSON.stringify(userObj));
+    localStorage.setItem("paopao_session_user", JSON.stringify(userObj));
     setCurrentUser(userObj);
     setActiveTab("home");
     alert(`ยินดีต้อนรับกลับมาค่ะ คุณ ${userObj.name} 🎉`);
@@ -1167,7 +1208,7 @@ export default function App() {
     setUsers(updatedUsers);
     setStoredData("paopao_users", updatedUsers);
     logOnlineAction("users", "สมัครสมาชิกสำเร็จ", `ผู้ใช้ชื่อ ${newUserObj.name} (โทร: ${newUserObj.phone}) ลงทะเบียนสมัครสมาชิกใหม่สำเร็จ (บทบาท: ${newUserObj.role})`, `${newUserObj.name} (${newUserObj.id})`);
-    safeStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
+    localStorage.setItem("paopao_session_user", JSON.stringify(newUserObj));
     setCurrentUser(newUserObj);
     setActiveTab("home");
     alert("สมัครสมาชิกและเข้าสู่ระบบสำเร็จเรียบร้อยแล้วค่ะ! ยินดีต้อนรับสู่ SEPHORA THAILAND ค่ะ 🎉");
@@ -1363,7 +1404,7 @@ export default function App() {
                 const matched = updated.find(u => u.id === currentUser.id);
                 if (matched && JSON.stringify(matched) !== JSON.stringify(currentUser)) {
                   setCurrentUser(matched);
-                  safeStorage.setItem("paopao_session_user", JSON.stringify(matched));
+                  localStorage.setItem("paopao_session_user", JSON.stringify(matched));
                 }
               }
             }}
@@ -1413,6 +1454,38 @@ export default function App() {
         ordersCount={currentUser ? orders.filter(o => o.customerId === currentUser.id && o.status !== 'completed' && o.status !== 'cancelled').length : 0}
         settings={settings}
       />
+
+      {/* DYNAMIC FULLSCREEN INITIAL LOADING OVERLAY (SUNLIGHT SHIMMER SEPHORA) */}
+      {isAppLoading && (
+        <div 
+          className={`fixed inset-0 z-[999999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ease-out select-none ${
+            isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'
+          }`}
+        >
+          <div className="relative flex flex-col items-center text-center px-4">
+            {/* Soft sunlight golden aura blur background */}
+            <div className="absolute w-[280px] h-[90px] bg-gradient-to-r from-amber-500/20 via-yellow-300/35 to-amber-500/20 rounded-full blur-2xl animate-pulse pointer-events-none" />
+            
+            {/* Shimmering SEPHORA Sunlight Text */}
+            <h1 className="text-4xl sm:text-5xl font-black tracking-[0.35em] pl-[0.35em] animate-sunlight-text drop-shadow-[0_0_25px_rgba(254,240,138,0.25)] font-display">
+              SEPHORA
+            </h1>
+            
+            <p className="text-[11px] font-semibold tracking-[0.2em] text-white/50 uppercase mt-2.5">
+              SEPHORA THAILAND
+            </p>
+
+            {/* Animated metallic sunlight loader bar */}
+            <div className="relative w-36 h-[2px] bg-white/15 overflow-hidden rounded-full mt-6">
+              <div className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-yellow-200 to-transparent animate-[bar-move_1.5s_ease-in-out_infinite]" />
+            </div>
+
+            <p className="text-[10px] font-medium text-white/40 mt-3">
+              กำลังโหลดข้อมูลและเตรียมระบบพร้อมใช้งาน...
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   );
