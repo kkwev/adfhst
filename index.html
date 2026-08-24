@@ -25,27 +25,178 @@
     <meta name="twitter:description" content="ช้อปสกินแคร์ เครื่องสำอาง น้ำหอม และบิวตี้ไอเทมยอดนิยมระดับโลกได้ที่ Sephora Thailand" />
     <meta name="twitter:image" content="https://ais-pre-gqghljcpxacus4prddvzdw-1047113194423.asia-southeast1.run.app/sephora.png" />
 
-    <!-- Early iOS Safari & bfcache Compatibility Script -->
+    <!-- Cross-browser Cross-device Safari/iOS WebKit Polyfill & Lifecycle Script -->
     <script>
       (function() {
-        // Prevent bfcache / back-forward frozen splash screen on iOS Safari
-        window.addEventListener('pageshow', function(event) {
-          if (event.persisted) {
+        'use strict';
+
+        /* --- A. Polyfills with Feature Detection (Zero impact on Android/Windows) --- */
+        if (typeof window !== 'undefined') {
+          // 1. requestIdleCallback & cancelIdleCallback (Safari < 16.4)
+          if (typeof window.requestIdleCallback !== 'function') {
+            window.requestIdleCallback = function(cb, options) {
+              var start = Date.now();
+              var timeout = (options && options.timeout) || 50;
+              return window.setTimeout(function() {
+                cb({
+                  didTimeout: false,
+                  timeRemaining: function() {
+                    return Math.max(0, timeout - (Date.now() - start));
+                  }
+                });
+              }, 1);
+            };
+          }
+
+          if (typeof window.cancelIdleCallback !== 'function') {
+            window.cancelIdleCallback = function(id) {
+              clearTimeout(id);
+            };
+          }
+
+          // 2. AudioContext Fallback (iOS WebKit webkitAudioContext)
+          if (typeof window.AudioContext === 'undefined' && typeof window.webkitAudioContext !== 'undefined') {
+            window.AudioContext = window.webkitAudioContext;
+          }
+
+          // 3. structuredClone Fallback (iOS < 15.4)
+          if (typeof window.structuredClone !== 'function') {
+            window.structuredClone = function(obj) {
+              if (obj === undefined) return undefined;
+              try {
+                return JSON.parse(JSON.stringify(obj));
+              } catch (e) {
+                var copy = Array.isArray(obj) ? [] : {};
+                for (var key in obj) {
+                  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    copy[key] = (typeof obj[key] === 'object' && obj[key] !== null) ? window.structuredClone(obj[key]) : obj[key];
+                  }
+                }
+                return copy;
+              }
+            };
+          }
+
+          // 4. Object.hasOwn Fallback (Safari < 15.4)
+          if (typeof Object.hasOwn !== 'function') {
+            Object.hasOwn = function(obj, prop) {
+              return Object.prototype.hasOwnProperty.call(obj, prop);
+            };
+          }
+
+          // 5. Array & String .at() Fallback (Safari < 15.4)
+          if (typeof Array.prototype.at !== 'function') {
+            Array.prototype.at = function(index) {
+              var k = index >= 0 ? index : this.length + index;
+              return (k >= 0 && k < this.length) ? this[k] : undefined;
+            };
+          }
+          if (typeof String.prototype.at !== 'function') {
+            String.prototype.at = function(index) {
+              var k = index >= 0 ? index : this.length + index;
+              return (k >= 0 && k < this.length) ? this.charAt(k) : undefined;
+            };
+          }
+
+          // 6. crypto.randomUUID Fallback (Safari < 15.4)
+          if (!window.crypto) window.crypto = {};
+          if (typeof window.crypto.randomUUID !== 'function') {
+            window.crypto.randomUUID = function() {
+              return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+              });
+            };
+          }
+        }
+
+        if (typeof navigator !== 'undefined') {
+          if (typeof navigator.vibrate !== 'function') {
+            navigator.vibrate = function() { return false; };
+          }
+          if (!navigator.clipboard) navigator.clipboard = {};
+          if (typeof navigator.clipboard.writeText !== 'function') {
+            navigator.clipboard.writeText = function(text) {
+              return new Promise(function(resolve, reject) {
+                try {
+                  var el = document.createElement('textarea');
+                  el.value = text;
+                  el.setAttribute('readonly', '');
+                  el.style.position = 'fixed';
+                  el.style.left = '-9999px';
+                  document.body.appendChild(el);
+                  el.select();
+                  var success = document.execCommand('copy');
+                  document.body.removeChild(el);
+                  if (success) resolve();
+                  else reject(new Error('copy command failed'));
+                } catch (err) {
+                  reject(err);
+                }
+              });
+            };
+          }
+        }
+
+        /* --- B. iOS Safari Dynamic Viewport Units Calculator --- */
+        function updateViewportUnits() {
+          if (typeof window === 'undefined' || typeof document === 'undefined') return;
+          var vh = window.innerHeight * 0.01;
+          document.documentElement.style.setProperty('--vh', vh + 'px');
+          document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');
+        }
+
+        updateViewportUnits();
+        window.addEventListener('resize', updateViewportUnits, { passive: true });
+        window.addEventListener('orientationchange', function() {
+          setTimeout(updateViewportUnits, 150);
+        }, { passive: true });
+
+        /* --- C. iOS Safari Lifecycle & bfcache Handling (Anti-White Screen) --- */
+        function recoverDisplayState() {
+          try {
             var splash = document.getElementById('initial-splash');
             if (splash) {
               splash.style.opacity = '0';
-              setTimeout(function() { try { splash.remove(); } catch(e) {} }, 300);
+              splash.style.pointerEvents = 'none';
+              setTimeout(function() {
+                try { splash.remove(); } catch (e) {}
+              }, 300);
             }
+
+            var root = document.getElementById('root') || document.body;
+            if (root) {
+              var _ = root.offsetHeight; // Trigger reflow to revive frozen WebKit layers
+            }
+            updateViewportUnits();
+          } catch (e) {}
+        }
+
+        // pageshow: triggers when restoring from iOS bfcache or normal reload
+        window.addEventListener('pageshow', function(event) {
+          if (event.persisted) {
+            recoverDisplayState();
+          } else {
+            setTimeout(recoverDisplayState, 200);
           }
         });
-        // Viewport height fix for iOS Safari
-        function setVh() {
-          var vh = window.innerHeight * 0.01;
-          document.documentElement.style.setProperty('--vh', vh + 'px');
-        }
-        setVh();
-        window.addEventListener('resize', setVh, { passive: true });
-        window.addEventListener('orientationchange', setVh, { passive: true });
+
+        // visibilitychange: handles tab/screen switching
+        document.addEventListener('visibilitychange', function() {
+          if (document.visibilityState === 'visible') {
+            recoverDisplayState();
+          }
+        });
+
+        // Safe unhandled rejection prevention for Safari
+        window.addEventListener('unhandledrejection', function(event) {
+          if (event.reason && (
+            event.reason.name === 'AbortError' || 
+            (typeof event.reason.message === 'string' && event.reason.message.indexOf('aborted') !== -1)
+          )) {
+            event.preventDefault();
+          }
+        });
       })();
     </script>
   </head>
