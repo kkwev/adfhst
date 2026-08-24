@@ -139,6 +139,54 @@ export function initIOSCompatibility(): void {
       });
     }
 
+    // --- String.prototype.replaceAll (Safari < 13.1) ---
+    if (!stringProto.replaceAll) {
+      Object.defineProperty(String.prototype, 'replaceAll', {
+        value: function (searchValue: string | RegExp, replaceValue: any) {
+          if (searchValue instanceof RegExp) {
+            return this.replace(searchValue, replaceValue);
+          }
+          return this.split(searchValue).join(replaceValue);
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+
+    // --- Object.fromEntries (Safari < 12.1) ---
+    if (typeof (Object as any).fromEntries !== 'function') {
+      (Object as any).fromEntries = function (entries: Iterable<[PropertyKey, any]>) {
+        const obj: any = {};
+        for (const [key, val] of entries) {
+          obj[key] = val;
+        }
+        return obj;
+      };
+    }
+
+    // --- Array.prototype.flat & flatMap (Safari < 12) ---
+    if (!arrayProto.flat) {
+      Object.defineProperty(Array.prototype, 'flat', {
+        value: function (depth = 1) {
+          return depth > 0
+            ? this.reduce((acc: any, val: any) => acc.concat(Array.isArray(val) ? (val as any).flat(depth - 1) : val), [])
+            : this.slice();
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+
+    if (!arrayProto.flatMap) {
+      Object.defineProperty(Array.prototype, 'flatMap', {
+        value: function (callback: any, thisArg?: any) {
+          return (this.map(callback, thisArg) as any).flat(1);
+        },
+        writable: true,
+        configurable: true,
+      });
+    }
+
     // --- Object.hasOwn (Safari < 15.4) ---
     if (typeof Object.hasOwn !== 'function') {
       Object.hasOwn = function (instance: any, property: PropertyKey): boolean {
