@@ -122,3 +122,33 @@ body.keyboard-open nav {
   position: absolute !important;
   bottom: 0 !important;
 }
+
+/* ==========================================================================
+   iOS Safari 100vh & Safe Area Bugfix Patch (Zero Impact on Android/Windows)
+   ========================================================================== */
+
+:root {
+  --app-height: 100vh;
+  --vh: 1vh;
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  html, body {
+    min-height: -webkit-fill-available;
+    min-height: calc(var(--vh, 1vh) * 100);
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .ios-full-height {
+    min-height: calc(var(--vh, 1vh) * 100);
+    height: -webkit-fill-available;
+  }
+}
