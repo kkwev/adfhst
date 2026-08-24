@@ -269,10 +269,13 @@ export function initIOSCompatibility(): void {
     const setViewportHeight = () => {
       const vh = window.innerHeight * 0.01;
       document.documentElement.style.setProperty('--vh', `${vh}px`);
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     };
     setViewportHeight();
     window.addEventListener('resize', setViewportHeight, { passive: true });
-    window.addEventListener('orientationchange', setViewportHeight, { passive: true });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(setViewportHeight, 150);
+    }, { passive: true });
 
     /* ==========================================================================
        3. iOS Safari bfcache (Back-Forward Cache) & Page Freeze Lifecycle
