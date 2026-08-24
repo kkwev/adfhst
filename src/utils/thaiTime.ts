@@ -18,12 +18,27 @@ export function parseDateSafe(input?: string | number | Date | null): Date {
   }
 
   if (typeof input === 'string') {
-    // If it's a date string without 'Z' or offset, but contains 'T', assume ISO UTC if needed
-    // or standard parsing
+    // 1. Standard ISO parse
     const parsed = new Date(input);
     if (!isNaN(parsed.getTime())) {
       return parsed;
     }
+
+    // 2. Safari WebKit fallback: parse "YYYY-MM-DD HH:mm:ss" or strings with spaces/slashes
+    try {
+      const trimmed = input.trim();
+      const isoWithT = trimmed.replace(' ', 'T');
+      const parsedWithT = new Date(isoWithT);
+      if (!isNaN(parsedWithT.getTime())) {
+        return parsedWithT;
+      }
+
+      const slashFormatted = trimmed.replace(/-/g, '/');
+      const parsedSlash = new Date(slashFormatted);
+      if (!isNaN(parsedSlash.getTime())) {
+        return parsedSlash;
+      }
+    } catch (e) {}
   }
 
   return new Date();
