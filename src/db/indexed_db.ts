@@ -14,30 +14,42 @@ function getIDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
 
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    if (typeof window === "undefined" || !window.indexedDB) {
-      reject(new Error("IndexedDB is not supported in this environment"));
-      return;
-    }
-
-    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      for (const storeName of STORE_NAMES) {
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: "id" });
-        }
+    try {
+      if (typeof window === "undefined" || !window.indexedDB) {
+        dbPromise = null;
+        reject(new Error("IndexedDB is not supported in this environment"));
+        return;
       }
-    };
 
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
+      const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = (event) => {
-      console.warn("IndexedDB failed to open:", (event.target as IDBOpenDBRequest).error);
-      reject((event.target as IDBOpenDBRequest).error);
-    };
+      request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+        try {
+          const db = (event.target as IDBOpenDBRequest).result;
+          for (const storeName of STORE_NAMES) {
+            if (!db.objectStoreNames.contains(storeName)) {
+              db.createObjectStore(storeName, { keyPath: "id" });
+            }
+          }
+        } catch (upgradeErr) {
+          dbPromise = null;
+          reject(upgradeErr);
+        }
+      };
+
+      request.onsuccess = (event) => {
+        resolve((event.target as IDBOpenDBRequest).result);
+      };
+
+      request.onerror = (event) => {
+        dbPromise = null;
+        console.warn("IndexedDB failed to open:", (event.target as IDBOpenDBRequest).error);
+        reject((event.target as IDBOpenDBRequest).error);
+      };
+    } catch (openErr) {
+      dbPromise = null;
+      reject(openErr);
+    }
   });
 
   return dbPromise;
